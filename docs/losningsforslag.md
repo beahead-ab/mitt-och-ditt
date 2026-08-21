@@ -14,7 +14,7 @@ Mina viktigaste synpunkter i korthet:
 
 1. **Beräkningsmotorn ska vara en exakt, versionerad och golden-testad implementation av avtalet** — inte en app-funktion bland andra. Den byggs först, fristående, och verifieras mot arkets exempel innan någon skärm byggs. (Avsnitt 2.)
 2. **Kostnader utanför modellen (BRF-avgift, försäkring) saknar helt hantering i Excel-arket** — arket ignorerar dem. Uppdragsbeskrivningen kräver 50/50-visning och krona-för-krona-reglering, så appen blir första stället där detta faktiskt förs. Det är rätt, men det är ny funktionalitet, inte en portering. (Avsnitt 3.1.)
-3. **Andelarna är preliminära i prognosläge — och det måste synas.** Eftersom värdet per andelsenhet beror på antaget slutvärde ändras även *historiska* enhetsöverföringar när antagandet ändras (avtal 6.4). Översikten får aldrig presentera andelarna som fastställda. (Avsnitt 2.4.)
+3. **Andelarna är preliminära i prognosläge — och det måste synas.** Eftersom värdet per andelsenhet beror på antaget slutvärde ändras även _historiska_ enhetsöverföringar när antagandet ändras (avtal 6.4). Översikten får aldrig presentera andelarna som fastställda. (Avsnitt 2.4.)
 4. **Vissa delar bör medvetet skjutas till v2**: dödsfallsflödet, notiser/e-post, native-app, komplett revisionsexport. (Avsnitt 3.9.)
 5. **En infrastrukturfråga behöver svar före backend-bygget**: Lovable Cloud som Bilkollen, eller fristående Supabase. Motorn och UI:t byggs identiskt oavsett. (Avsnitt 7, fråga 1.)
 
@@ -24,14 +24,14 @@ Mina viktigaste synpunkter i korthet:
 
 Alla frågor i avsnitt 7 är besvarade. Det här gäller nu:
 
-| Fråga | Beslut |
-|---|---|
-| Infrastruktur | **Ingen Lovable- eller Supabase-koppling.** Container-paketerad app + Postgres, körs på en DigitalOcean-droplet. Se avsnitt 5.0. |
-| Korrigeringar | Ersättningssemantik (3.2). |
-| Registratorns godkännande | Sker i registreringsflödet (3.3). |
-| Prognosens standardantagande | "Avräkning idag med oförändrat värde" (2.4). |
-| 50/50-liggaren | Med i v1 (3.1). |
-| Konfigurerbarhet | Parametrar ja, struktur nej. Se avsnitt 1c. |
+| Fråga                        | Beslut                                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Infrastruktur                | **Ingen Lovable- eller Supabase-koppling.** Container-paketerad app + Postgres, körs på en DigitalOcean-droplet. Se avsnitt 5.0. |
+| Korrigeringar                | Ersättningssemantik (3.2).                                                                                                       |
+| Registratorns godkännande    | Sker i registreringsflödet (3.3).                                                                                                |
+| Prognosens standardantagande | "Avräkning idag med oförändrat värde" (2.4).                                                                                     |
+| 50/50-liggaren               | Med i v1 (3.1).                                                                                                                  |
+| Konfigurerbarhet             | Parametrar ja, struktur nej. Se avsnitt 1c.                                                                                      |
 
 ## 1c. Hur konfigurerbara avtalets regler ska vara
 
@@ -104,7 +104,7 @@ I prognosläge beror värdet per enhet på antaget slutvärde och antagen slutda
 
 - Översikten visar alltid vilken beräkningsgrund som gäller: **"Prognos (antaget slutvärde X, slutdag Y)"** eller **"Slutavräkning"**.
 - Andelar i prognosläge etiketteras "preliminära" med en "Vad betyder detta?"-förklaring som visar samma siffror under två olika antaganden.
-- **Standardantagande** (min rekommendation, se fråga 5): *"avräkning idag till startvärdet"* — slutdag = idag, slutvärde = startvärde. Det är det mest neutrala läget ("vad händer om vi avräknar nu utan värdeförändring?") och kräver inga gissningar om marknaden. Parterna kan spara egna scenarier i simulatorn och välja ett som översiktens standard.
+- **Standardantagande** (min rekommendation, se fråga 5): _"avräkning idag till startvärdet"_ — slutdag = idag, slutvärde = startvärde. Det är det mest neutrala läget ("vad händer om vi avräknar nu utan värdeförändring?") och kräver inga gissningar om marknaden. Parterna kan spara egna scenarier i simulatorn och välja ett som översiktens standard.
 
 ### 2.5 Testning
 
@@ -129,18 +129,18 @@ Detta är ny funktionalitet som inte kan verifieras mot arket — den verifieras
 
 ### 3.2 Korrigeringar: ersättningssemantik, inte deltasemantik
 
-Uppdragsbeskrivningen kräver länkade korrigeringsposter men definierar inte vad korrigeringen *är*. Jag föreslår **ersättningssemantik**: en korrigeringspost är en komplett ny version av posten (alla fält), som när båda godkänt den ersätter originalet i beräkningen. Originalet behålls synligt, märkt "ersatt av K-0007". Alternativet (deltaposter som justerar belopp) är svårare att granska och lätt att göra fel. Sena händelser som hör till en befintlig post — försäkringsersättning, slutligt skattebesked — registreras som korrigering av originalposten, inte som egen post, så att nettokostnaden (avtal 7.5) alltid ligger samlad på rätt betalningsdag.
+Uppdragsbeskrivningen kräver länkade korrigeringsposter men definierar inte vad korrigeringen _är_. Jag föreslår **ersättningssemantik**: en korrigeringspost är en komplett ny version av posten (alla fält), som när båda godkänt den ersätter originalet i beräkningen. Originalet behålls synligt, märkt "ersatt av K-0007". Alternativet (deltaposter som justerar belopp) är svårare att granska och lätt att göra fel. Sena händelser som hör till en befintlig post — försäkringsersättning, slutligt skattebesked — registreras som korrigering av originalposten, inte som egen post, så att nettokostnaden (avtal 7.5) alltid ligger samlad på rätt betalningsdag.
 
 ### 3.2b Radering: ingenting raderas, saker upphör att gälla
 
-Avtalets punkt 14.3 är kategorisk: *"Godkända poster får inte raderas. Fel rättas genom ny korrigeringspost."* Det ger fyra lägen, och bara ett av dem innehåller en verklig radering.
+Avtalets punkt 14.3 är kategorisk: _"Godkända poster får inte raderas. Fel rättas genom ny korrigeringspost."_ Det ger fyra lägen, och bara ett av dem innehåller en verklig radering.
 
-| Läge | Vad som händer | Varför |
-|---|---|---|
-| **Utkast** – bara registratorn har sett den | Får **raderas** på riktigt. Raderingen noteras i aktivitetsloggen. | Posten har aldrig varit en del av det gemensamma underlaget och har aldrig påverkat något. Att tvinga fram en makulering för en halvskriven rad vore bara friktion. |
-| **Väntar på godkännande** | Registratorn kan **återkalla** den. Status blir `Återkallad`, posten ligger kvar. | Motparten har fått en förfrågan att ta ställning till. Att förfrågan drogs tillbaka är i sig en uppgift värd att bevara. |
-| **Godkänd** | **Makuleras** med en ny, länkad makuleringspost som båda parter godkänner, med angivet skäl. Originalet ligger kvar synligt, märkt "Makulerad · se M-0007". | Punkt 14.3. En godkänd post är ett gemensamt åtagande och kan inte tas bort ensidigt. |
-| **Kostnadsklassificering** | **Upphävs från ett datum**, aldrig retroaktivt. | En betalning som gjordes medan klassificeringen gällde måste fortsätta räknas med den. Att radera en regel skulle tyst skriva om historien. |
+| Läge                                        | Vad som händer                                                                                                                                              | Varför                                                                                                                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Utkast** – bara registratorn har sett den | Får **raderas** på riktigt. Raderingen noteras i aktivitetsloggen.                                                                                          | Posten har aldrig varit en del av det gemensamma underlaget och har aldrig påverkat något. Att tvinga fram en makulering för en halvskriven rad vore bara friktion. |
+| **Väntar på godkännande**                   | Registratorn kan **återkalla** den. Status blir `Återkallad`, posten ligger kvar.                                                                           | Motparten har fått en förfrågan att ta ställning till. Att förfrågan drogs tillbaka är i sig en uppgift värd att bevara.                                            |
+| **Godkänd**                                 | **Makuleras** med en ny, länkad makuleringspost som båda parter godkänner, med angivet skäl. Originalet ligger kvar synligt, märkt "Makulerad · se M-0007". | Punkt 14.3. En godkänd post är ett gemensamt åtagande och kan inte tas bort ensidigt.                                                                               |
+| **Kostnadsklassificering**                  | **Upphävs från ett datum**, aldrig retroaktivt.                                                                                                             | En betalning som gjordes medan klassificeringen gällde måste fortsätta räknas med den. Att radera en regel skulle tyst skriva om historien.                         |
 
 Korrigering och makulering är samma mekanism i två former: **en korrigering ersätter posten med nya värden, en makulering ersätter den med ingenting.** Motorn behandlar dem likadant – båda kräver bådas godkännande, båda lämnar originalet orört och länkat.
 
@@ -158,7 +158,7 @@ I gränssnittet ger det tre saker:
 - **Högerklick på cellen** visar varje ändring med värdet före och efter, vem som gjorde den, när den började gälla och skälet.
 - **Tidsresa över hela underlaget**: välj en tidpunkt och se både posterna och beräkningen som de såg ut då. Eftersom motorn alltid räknar om från startdagen blir den återskapade beräkningen korrekt utan att något behöver sparas.
 
-Notera skillnaden mellan *skriven* och *gällande*: en version som bara en part godkänt har inte börjat gälla och räknas därför inte in i läget vid en tidpunkt, hur nyskriven den än är.
+Notera skillnaden mellan _skriven_ och _gällande_: en version som bara en part godkänt har inte börjat gälla och räknas därför inte in i läget vid en tidpunkt, hur nyskriven den än är.
 
 ### 3.2d Rätten till radering och den oföränderliga loggen
 
@@ -201,15 +201,15 @@ Bilaga 1-exemplen är **körbara fixturer genom samma beräkningsmotor** och ren
 
 ### 3.9 Skjuts medvetet till v2
 
-| Skjuts upp | Motivering |
-|---|---|
-| Dödsfallsflödet (avtal 22) | Datamodellen förbereds (exitprocess-typ `dödsfall`), men UI och tidsfrister byggs inte i v1. Känsligt flöde som förtjänar egen omgång. |
-| Notiser, e-post, push | Två användare som ses varje dag behöver inte push för "väntar på godkännande" i v1 — översiktens statuskort räcker. Bilkollens notisinfrastruktur kan porteras senare. |
-| Native-app (Capacitor) | Webb räcker för v1; mobilanpassad design från dag ett. |
-| Komplett revisionsexport (zip) | Slutavräkningsprotokoll, transaktionsexport och avtalsexport byggs i v1; komplett zip-paket i v1.1. |
-| Nyttjandeersättning efter processdag (avtal 21) | Visas som checklista/påminnelse i exitprocessen, men beräknas inte. |
-| Regressfordringar med dröjsmålsränta (avtal 12.3) | Kan registreras som manuell personlig fordran med anteckning; ränteberäkning enligt räntelagen byggs inte i v1. |
-| Fler hushåll i samma installation | Datamodellen är multi-hushåll från dag ett (RLS kräver det ändå), men onboarding/administration för nya par poleras senare. |
+| Skjuts upp                                        | Motivering                                                                                                                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dödsfallsflödet (avtal 22)                        | Datamodellen förbereds (exitprocess-typ `dödsfall`), men UI och tidsfrister byggs inte i v1. Känsligt flöde som förtjänar egen omgång.                                 |
+| Notiser, e-post, push                             | Två användare som ses varje dag behöver inte push för "väntar på godkännande" i v1 — översiktens statuskort räcker. Bilkollens notisinfrastruktur kan porteras senare. |
+| Native-app (Capacitor)                            | Webb räcker för v1; mobilanpassad design från dag ett.                                                                                                                 |
+| Komplett revisionsexport (zip)                    | Slutavräkningsprotokoll, transaktionsexport och avtalsexport byggs i v1; komplett zip-paket i v1.1.                                                                    |
+| Nyttjandeersättning efter processdag (avtal 21)   | Visas som checklista/påminnelse i exitprocessen, men beräknas inte.                                                                                                    |
+| Regressfordringar med dröjsmålsränta (avtal 12.3) | Kan registreras som manuell personlig fordran med anteckning; ränteberäkning enligt räntelagen byggs inte i v1.                                                        |
+| Fler hushåll i samma installation                 | Datamodellen är multi-hushåll från dag ett (RLS kräver det ändå), men onboarding/administration för nya par poleras senare.                                            |
 
 Inget av detta blockerar Caesar och Felicias användning.
 
@@ -220,7 +220,7 @@ Inget av detta blockerar Caesar och Felicias användning.
 Dessa ska in i bygget (eller åtminstone i backloggen) även om prompten inte nämner dem:
 
 1. **14-dagarsfristen (17.1):** den som vill överta bostaden ska meddela det senast 14 dagar efter processdagen. Exitprocessens tidslinje får alltså **två** frister, inte bara tremånadersregeln.
-2. **Kostnadsklassificeringar har giltighetsdatum (25.2):** vid flera godkända klassificeringar av samma kostnadsslag gäller den med senaste giltighetsdag *som inte ligger efter betalningsdagen*. Arket implementerar exakt detta (LOOKUP på datum). Datamodellen behöver alltså en temporal regeltabell — en klassificering är aldrig en enkel boolean på kategorin.
+2. **Kostnadsklassificeringar har giltighetsdatum (25.2):** vid flera godkända klassificeringar av samma kostnadsslag gäller den med senaste giltighetsdag _som inte ligger efter betalningsdagen_. Arket implementerar exakt detta (LOOKUP på datum). Datamodellen behöver alltså en temporal regeltabell — en klassificering är aldrig en enkel boolean på kategorin.
 3. **Initialt kapital får inte dubbelregistreras (7.1):** insatserna hanteras uteslutande via startenheterna. Appen varnar om någon försöker registrera en transaktion som ser ut som en kapitalinsats på startdagen.
 4. **Kvartalsavstämning (14.4):** parterna ska minst kvartalsvis kontrollera att allt är registrerat. Billig funktion: "senast avstämd"-datum + diskret påminnelse på översikten.
 5. **Arkets valideringar** (kolumn AQ): negativa belopp, nyckel utanför 0–1, betalningsdag utanför start–slut, osorterade rader, godkänd post utan gällande klassificering. Alla blir registrerings-valideringar respektive motor-kontroller i appen.
@@ -238,25 +238,25 @@ Ingen koppling till Lovable eller Supabase. Tjänsten är container-paketerad oc
 
 **Vald lösning:** en DigitalOcean-droplet (2 GB, ca 12 USD/mån) som kör `docker compose` med två tjänster – appen och Postgres – plus en valfri Caddy-container som sköter domän och certifikat automatiskt. Totalkostnad cirka 12–18 USD i månaden.
 
-| Alternativ | Kostnad/mån | Flyttbart | Bedömning |
-|---|---|---|---|
-| **Droplet + Docker Compose** | ca 12 USD | Helt | **Valt.** Billigast, inga bindningar. |
-| App Platform + Managed Postgres | ca 25–30 USD | Delvis | Mindre drift, dubbla kostnaden, leverantörsbunden databas. |
-| Supabase | 0–25 USD | Nej | Uteslutet enligt beslutet ovan. |
+| Alternativ                      | Kostnad/mån  | Flyttbart | Bedömning                                                  |
+| ------------------------------- | ------------ | --------- | ---------------------------------------------------------- |
+| **Droplet + Docker Compose**    | ca 12 USD    | Helt      | **Valt.** Billigast, inga bindningar.                      |
+| App Platform + Managed Postgres | ca 25–30 USD | Delvis    | Mindre drift, dubbla kostnaden, leverantörsbunden databas. |
+| Supabase                        | 0–25 USD     | Nej       | Uteslutet enligt beslutet ovan.                            |
 
 Fullständig driftbeskrivning finns i `docs/drift.md`.
 
 ### 5.1 Stack
 
-| Lager | Val | Varför |
-|---|---|---|
-| Ramverk | TanStack Start (React 19) | Samma som Bilkollen, så designsystem och kodmönster delas mellan systerprodukterna. Bygger till en vanlig Node-server utan serverless-bindning. |
-| Server | Nitro, preset `node-server` | Ett enda `node .output/server/index.mjs` i containern. |
-| Stil | Tailwind v4 med Bilkollens tokenfil | Identiskt visuellt uttryck. |
-| Databas | Postgres 17 i container | Standard-SQL, flyttas med `pg_dump`. Radnivåsäkerhet drivs av sessionsvariabel per förfrågan. |
-| Inloggning | Egen sessionshantering, endast inbjudna | Inget tredjepartsberoende för något så centralt. |
-| Bilagor | Privat volym, aldrig publikt exponerad | Kan bytas mot S3-kompatibel lagring utan kodändring. |
-| Tester | Vitest | Motorn är ren och testas utan webbläsare eller databas. |
+| Lager      | Val                                     | Varför                                                                                                                                          |
+| ---------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ramverk    | TanStack Start (React 19)               | Samma som Bilkollen, så designsystem och kodmönster delas mellan systerprodukterna. Bygger till en vanlig Node-server utan serverless-bindning. |
+| Server     | Nitro, preset `node-server`             | Ett enda `node .output/server/index.mjs` i containern.                                                                                          |
+| Stil       | Tailwind v4 med Bilkollens tokenfil     | Identiskt visuellt uttryck.                                                                                                                     |
+| Databas    | Postgres 17 i container                 | Standard-SQL, flyttas med `pg_dump`. Radnivåsäkerhet drivs av sessionsvariabel per förfrågan.                                                   |
+| Inloggning | Egen sessionshantering, endast inbjudna | Inget tredjepartsberoende för något så centralt.                                                                                                |
+| Bilagor    | Privat volym, aldrig publikt exponerad  | Kan bytas mot S3-kompatibel lagring utan kodändring.                                                                                            |
+| Tester     | Vitest                                  | Motorn är ren och testas utan webbläsare eller databas.                                                                                         |
 
 Bilkollen röres inte. Kodmönster som återanvänds: app-skalet med `PageHeader`/`EmptyState`/`SectionTabs`, avtalsdokument med checksumma och acceptanstabell, samt sektionsstrukturen.
 
@@ -264,15 +264,15 @@ Bilkollen röres inte. Kodmönster som återanvänds: app-skalet med `PageHeader
 
 Sju huvudval, samma skal som Bilkollen (fast toppfält med backdrop-blur, hamburgermeny, sektionsflikar, `max-w-5xl`, `px-4`):
 
-| Sektion | Flikar | Bilkollen-motsvarighet |
-|---|---|---|
-| **Översikt** `/` | — | Bilens hero → bostadens "Läget nu" |
-| **Transaktioner** `/transaktioner` | Registrera · Väntar på godkännande · Historik | Ekonomisidorna |
-| **Överenskommelse** `/overenskommelse` | Gällande · Kostnadsslag · Avtalsversioner · Tilläggsavtal · Parter | Perioder & avtal |
-| **Simulator** `/simulator` | — | Milprognosen |
-| **Försäljning & utköp** `/forsaljning` | Process · Värderingar · Slutavräkning | — (nytt) |
-| **Mitt konto** `/konto` | Profil (· Notiser i v2) | Mitt konto |
-| **Systemadmin** `/system` | Användare · Hushåll · Inbjudningar | Systemadmin |
+| Sektion                                | Flikar                                                             | Bilkollen-motsvarighet             |
+| -------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| **Översikt** `/`                       | —                                                                  | Bilens hero → bostadens "Läget nu" |
+| **Transaktioner** `/transaktioner`     | Registrera · Väntar på godkännande · Historik                      | Ekonomisidorna                     |
+| **Överenskommelse** `/overenskommelse` | Gällande · Kostnadsslag · Avtalsversioner · Tilläggsavtal · Parter | Perioder & avtal                   |
+| **Simulator** `/simulator`             | —                                                                  | Milprognosen                       |
+| **Försäljning & utköp** `/forsaljning` | Process · Värderingar · Slutavräkning                              | — (nytt)                           |
+| **Mitt konto** `/konto`                | Profil (· Notiser i v2)                                            | Mitt konto                         |
+| **Systemadmin** `/system`              | Användare · Hushåll · Inbjudningar                                 | Systemadmin                        |
 
 Bostadsväljaren (motsvarigheten till bilväljaren) finns i toppfältet men är osynlig så länge kontot bara har ett hushåll — vilket är fallet för Caesar och Felicia.
 
@@ -289,16 +289,19 @@ Bilkollens `styles.css` tas över i sin helhet: `bone`/`ink`/`copper`/`hairline`
 Uppdragsbeskrivningens 26 tabeller är i allt väsentligt rätt. Jag föreslår följande justeringar:
 
 **Förenklas bort (härledd eller sammanslagen data):**
+
 - `transaction_corrections` → kolumnen `corrects_transaction_id` på `transactions` räcker (ersättningssemantik, 3.2).
 - `tax_effects` → skatteeffekt är fält på `transaction_payments` (belopp + `preliminary`-flagga). Slutligt utfall hanteras via korrigeringspost.
 - `unit_balances` och `calculation_events` → motorns output, lagras som JSONB i `calculation_runs` (indata-hash, motorversion, läge, resultat). Att materialisera härledd data som egna sanningstabeller skapar bara risk att de glider isär från motorn.
 - `personal_claims` → delas i två: motor-beräknade fordringar bor i körningsresultatet; **manuellt registrerade** fordringar (regress, löpande regleringar) får en egen liten tabell med bådas godkännande.
 
 **Läggs till:**
+
 - `invites` (invite-only-flödet, mönster från Bilkollen).
 - `simulator_scenarios` (sparade antaganden; ett kan markeras som översiktens standard).
 
 **Preciseras:**
+
 - `transactions` bär huvudet (betalningsdag som `date`, kostnadsslag, beskrivning, särskild nyckel 0–1 eller null, status, korrigeringsreferens, registrerad av); `transaction_payments` bär per part: betalat brutto, rabatt/återbetalning/ersättning, skatteeffekt (+ preliminär-flagga). Båda parter kan alltså betala delar av samma post — precis som arkets kolumner E–H.
 - `cost_category_rules` är temporal (2 i avsnitt 4): kostnadsslag, `effective_from`, ingår/ingår inte, fördelning utanför modellen, bådas godkännande, status.
 - `agreement_versions` bär både dokumentet (markdown + md5-checksumma, som Bilkollen) och de maskinläsbara parametrarna (startdag, startvärde, insatser, startenheter, totala enheter). `agreement_addenda` kräver uppladdad undertecknad handling + bådas bekräftelse, och är enda vägen att ändra 25.1-fälten (samboavtalsdel, formella ägarandelar, startvärde, startdag, formeln, slutavräknings- och tremånadersregeln) — appen låser dessa fält utan tillägg.
@@ -323,8 +326,8 @@ Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrive
 ### 5.6 Överenskommelse-sektionens tre lager
 
 1. **Det undertecknade huvudavtalet** (V8-dokumentet): laddas upp som referens med checksumma. Appen är underordnad det — det ska synas.
-2. **Den digitala gällande överenskommelsen** (`agreement_versions`): parametrarna + genererat dokument, aktiveras med bådas acceptans (Bilkollens aktiverings-/acceptansflöde återanvänds). Startvärden för Caesar och Felicia läggs in som redigerbara utkastvärden enligt uppdragsbeskrivningen (4 495 000 / 1 200 000 / 180 000 / 3 115 000 / 1 380 000; andelar 86,9565 % / 13,0435 %). Formella ägarandelar är egna fält, förifylls inte.
-3. **Kostnadsklassificeringarna** (`cost_category_rules`): får ändras löpande i appen med bådas godkännande och giltighetsdatum (25.2) — grundklassificeringen från avsnitt 6 i uppdragsbeskrivningen seedas med startdagen som giltighetsdatum. Nya/oklara kostnadsslag hamnar automatiskt utanför modellen tills båda godkänt klassificeringen.
+2. **Den digitala gällande överenskommelsen** (`agreement_versions`): parametrarna + genererat dokument, aktiveras med bådas acceptans (Bilkollens aktiverings-/acceptansflöde återanvänds). Caesar och Felicia fyller själva i bostad, startdag, startvärde, lån, kapitalinsatser och formella ägarandelar efter att båda har anslutit. Ingen ekonomisk uppgift förifylls i drift. Formella ägarandelar är egna fält och hålls åtskilda från den interna ekonomiska andelen.
+3. **Kostnadsklassificeringarna** (`cost_category_rules`): får ändras löpande i appen med bådas godkännande och giltighetsdatum (25.2) — grundklassificeringen från avsnitt 6 aktiveras först när båda har godkänt startavtalet. Nya/oklara kostnadsslag hamnar automatiskt utanför modellen tills båda godkänt klassificeringen.
 
 ### 5.7 Export (importen struken)
 
@@ -344,16 +347,16 @@ Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrive
 
 Varje etapp är körbar och granskningsbar innan nästa börjar.
 
-| Etapp | Innehåll | Klart när |
-|---|---|---|
-| **0. Grund** ✅ | Infrastrukturbeslut. Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, Docker, CI. | Klart. Bygget, containern och alla sju sektioner är på plats. |
-| **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. Bilaga 1 exempel 1–10 gröna, plus egenskaper och kantfall. |
-| **2. Backend-grund** ✅ | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed. | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren. |
-| **3. Överenskommelse + Transaktioner** ✅ | Registrering, godkännande, invändning, återkallande, korrigering och makulering. | Klart. Hela kedjan verifierad i webbläsaren med två inloggade parter; bilagor återstår. |
-| **4. Översikt + Simulator** ✅ | Motorn kopplad till UI, bilagor, pedagogiska exempel, kvartalsavstämning. | Klart. Exemplen körs genom motorn och testas mot bilaga 1; bilagor verifierade inklusive åtkomstspärr. |
-| **5. Export** ✅ | Exporterna i 5.7. Importen av V8-arket ströks – arket är demodata. | Klart. Sex exporter verifierade i webbläsaren, inklusive att PDF:en kodar svenska tecken rätt. |
-| **6. Försäljning & utköp** ✅ | Processer, värderingar, slutavräkning med låsning och protokoll. | Klart. En komplett exit genomförd i webbläsaren: processdag, övertagande, tre värderingar, fryst avräkning, omverifiering och låsning. |
-| **7. Finish** ✅ | Systemadmin, konto, tomma tillstånd, mobilkontroll. | Klart. Administratörsgränsen bevisad i databasen; inbjudan, avstängning och lösenordsbyte verifierade i webbläsaren. |
+| Etapp                                     | Innehåll                                                                                  | Klart när                                                                                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **0. Grund** ✅                           | Infrastrukturbeslut. Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, Docker, CI. | Klart. Bygget, containern och alla sju sektioner är på plats.                                                                          |
+| **1. Motorn** ✅                          | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend.                    | Klart. Bilaga 1 exempel 1–10 gröna, plus egenskaper och kantfall.                                                                      |
+| **2. Backend-grund** ✅                   | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed.                     | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren.                   |
+| **3. Överenskommelse + Transaktioner** ✅ | Registrering, godkännande, invändning, återkallande, korrigering och makulering.          | Klart. Hela kedjan verifierad i webbläsaren med två inloggade parter; bilagor återstår.                                                |
+| **4. Översikt + Simulator** ✅            | Motorn kopplad till UI, bilagor, pedagogiska exempel, kvartalsavstämning.                 | Klart. Exemplen körs genom motorn och testas mot bilaga 1; bilagor verifierade inklusive åtkomstspärr.                                 |
+| **5. Export** ✅                          | Exporterna i 5.7. Importen av V8-arket ströks – arket är demodata.                        | Klart. Sex exporter verifierade i webbläsaren, inklusive att PDF:en kodar svenska tecken rätt.                                         |
+| **6. Försäljning & utköp** ✅             | Processer, värderingar, slutavräkning med låsning och protokoll.                          | Klart. En komplett exit genomförd i webbläsaren: processdag, övertagande, tre värderingar, fryst avräkning, omverifiering och låsning. |
+| **7. Finish** ✅                          | Systemadmin, konto, tomma tillstånd, mobilkontroll.                                       | Klart. Administratörsgränsen bevisad i databasen; inbjudan, avstängning och lösenordsbyte verifierade i webbläsaren.                   |
 
 ---
 
@@ -374,4 +377,4 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0–7 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, bilagor, motordrivna räkneexempel, exporterna försäljning och utköp med fryst och omverifierbar slutavräkning, samt administration med en bevisad gräns mellan åtkomst och innehåll. Byggordningen är därmed genomförd, och det som återstår är de delar som från början sköts till v2.*
+_Etapp 0–7 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, bilagor, motordrivna räkneexempel, exporterna försäljning och utköp med fryst och omverifierbar slutavräkning, samt administration med en bevisad gräns mellan åtkomst och innehåll. Byggordningen är därmed genomförd, och det som återstår är de delar som från början sköts till v2._

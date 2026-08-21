@@ -71,6 +71,16 @@ export function agreementMarkdown(context: DocumentContext): string {
     "",
     "## Formell ägarandel",
     "",
+    agreement.formalOwnership
+      ? table(
+          ["Part", "Formell ägarandel"],
+          [a, b].map((party) => [
+            nameOf(names, party),
+            fmtAndel(agreement.formalOwnership?.[party] ?? 0),
+          ]),
+        )
+      : "Inte registrerad.",
+    "",
     "Följer köpehandlingen och föreningens uppgifter. Den interna ekonomiska",
     "andelen ändrar den aldrig.",
     "",

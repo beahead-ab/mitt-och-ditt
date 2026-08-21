@@ -15,6 +15,8 @@ export type HouseholdSummary = {
   id: string;
   name: string;
   propertyAddress: string | null;
+  propertyAssociation: string | null;
+  apartmentNumber: string | null;
   parties: { partyId: string; userId: string; name: string }[];
 };
 
@@ -30,8 +32,16 @@ export type HouseholdData = {
 /** Hushållen den inloggade är medlem i. Radnivåsäkerheten gör urvalet. */
 export async function myHouseholds(userId: string): Promise<HouseholdSummary[]> {
   return asUser(userId, async (sql) => {
-    const rows = await sql<{ id: string; name: string; address: string | null }[]>`
-      select h.id, h.name, p.address
+    const rows = await sql<
+      {
+        id: string;
+        name: string;
+        address: string | null;
+        association: string | null;
+        apartment_number: string | null;
+      }[]
+    >`
+      select h.id, h.name, p.address, p.association, p.apartment_number
       from households h
       left join properties p on p.household_id = h.id
       order by h.created_at
@@ -44,6 +54,8 @@ export async function myHouseholds(userId: string): Promise<HouseholdSummary[]> 
       id: row.id,
       name: row.name,
       propertyAddress: row.address,
+      propertyAssociation: row.association,
+      apartmentNumber: row.apartment_number,
       parties: members
         .filter((m) => m.household_id === row.id)
         .map((m) => ({ partyId: m.party_id, userId: m.user_id, name: m.display_name })),
@@ -99,8 +111,16 @@ async function readSummary(
   sql: postgres.Sql,
   householdId: string,
 ): Promise<HouseholdSummary | null> {
-  const rows = await sql<{ id: string; name: string; address: string | null }[]>`
-    select h.id, h.name, p.address
+  const rows = await sql<
+    {
+      id: string;
+      name: string;
+      address: string | null;
+      association: string | null;
+      apartment_number: string | null;
+    }[]
+  >`
+    select h.id, h.name, p.address, p.association, p.apartment_number
     from households h
     left join properties p on p.household_id = h.id
     where h.id = ${householdId}
@@ -115,6 +135,8 @@ async function readSummary(
     id: rows[0].id,
     name: rows[0].name,
     propertyAddress: rows[0].address,
+    propertyAssociation: rows[0].association,
+    apartmentNumber: rows[0].apartment_number,
     parties: members.map((m) => ({
       partyId: m.party_id,
       userId: m.user_id,
@@ -135,9 +157,11 @@ async function readAgreement(
       initial_loan_ore: string;
       total_units: string;
       start_units: Record<string, number>;
+      formal_ownership: Record<string, number> | null;
     }[]
   >`
-    select v.start_date, v.start_value_ore, v.initial_loan_ore, v.total_units, v.start_units
+    select v.start_date, v.start_value_ore, v.initial_loan_ore, v.total_units,
+           v.start_units, v.formal_ownership
     from agreement_versions v
     join agreements a on a.id = v.agreement_id
     where a.household_id = ${householdId} and v.effective_at is not null
@@ -155,6 +179,7 @@ async function readAgreement(
     initialLoan: Number(row.initial_loan_ore),
     parties: [parties[0], parties[1]],
     startUnits: row.start_units,
+    formalOwnership: row.formal_ownership ?? undefined,
     totalUnits: Number(row.total_units),
   };
 }

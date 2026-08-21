@@ -4,9 +4,9 @@ import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { Badge } from "@/components/ui/badge";
 import { AgreementApproval } from "@/components/agreement-approval";
+import { AgreementSetup } from "@/components/agreement-setup";
 import { ExportMenu } from "@/components/export-menu";
 import { useExports } from "@/hooks/use-exports";
-import { NoAgreement } from "@/components/no-agreement";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
@@ -38,9 +38,7 @@ function Current() {
       <>
         <PageHeader eyebrow="Överenskommelse" title="Gällande överenskommelse" />
         <AgreementApproval />
-        <div className="mt-4">
-          <NoAgreement loading={isLoading} />
-        </div>
+        {!isLoading && <AgreementSetup />}
       </>
     );
   }
@@ -64,6 +62,13 @@ function Current() {
       <section className="tile-surface mb-4 p-5">
         <p className="eyebrow mb-3">Grunduppgifter</p>
         <dl className="grid gap-3 sm:grid-cols-2">
+          {household?.propertyAddress && <Item label="Adress" value={household.propertyAddress} />}
+          {household?.propertyAssociation && (
+            <Item label="Bostadsrättsförening" value={household.propertyAssociation} />
+          )}
+          {household?.apartmentNumber && (
+            <Item label="Lägenhetsnummer" value={household.apartmentNumber} />
+          )}
           <Item label="Startdag" value={fmtDate(agreement.startDate)} />
           <Item label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} />
           <Item label="Bolån på startdagen" value={fmtKr(toKronor(agreement.initialLoan))} />
@@ -87,7 +92,14 @@ function Current() {
                   label="Intern startandel"
                   value={fmtAndel(agreement.startUnits[party] / agreement.totalUnits)}
                 />
-                <Line label="Formell ägarandel" value="Fylls i separat" />
+                <Line
+                  label="Formell ägarandel"
+                  value={
+                    agreement.formalOwnership?.[party] === undefined
+                      ? "Saknas"
+                      : fmtAndel(agreement.formalOwnership[party])
+                  }
+                />
               </dd>
             </div>
           ))}

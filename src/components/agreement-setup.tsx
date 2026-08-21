@@ -1,0 +1,349 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+
+import { useHousehold } from "@/components/household-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createInitialAgreementDraft, pendingAgreement } from "@/lib/agreement.functions";
+import { toKronor } from "@/lib/engine";
+import { fmtKr } from "@/lib/format";
+
+function asNumber(value: string): number {
+  return Number(value.replace(/\s/g, ""));
+}
+
+/** Gemensam uppstart: parterna fyller själva i alla bostads- och startvärden. */
+export function AgreementSetup() {
+  const { household } = useHousehold();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [address, setAddress] = useState("");
+  const [association, setAssociation] = useState("");
+  const [apartmentNumber, setApartmentNumber] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startValue, setStartValue] = useState("");
+  const [initialLoan, setInitialLoan] = useState("");
+  const [caesarCapital, setCaesarCapital] = useState("");
+  const [feliciaCapital, setFeliciaCapital] = useState("");
+  const [caesarFormal, setCaesarFormal] = useState("");
+  const [feliciaFormal, setFeliciaFormal] = useState("");
+
+  const draftQuery = useQuery({
+    queryKey: ["pending-agreement", household?.id],
+    queryFn: () => pendingAgreement({ data: { householdId: household!.id } }),
+    enabled: Boolean(household),
+  });
+  const draft = draftQuery.data;
+
+  useEffect(() => {
+    if (!household) return;
+    setAddress(household.propertyAddress ?? "");
+    setAssociation(household.propertyAssociation ?? "");
+    setApartmentNumber(household.apartmentNumber ?? "");
+  }, [household]);
+
+  useEffect(() => {
+    if (!draftQuery.isFetched) return;
+    if (!draft) {
+      setEditing(true);
+      return;
+    }
+    setStartDate(draft.startDate);
+    setStartValue(String(toKronor(draft.startValue)));
+    setInitialLoan(String(toKronor(draft.initialLoan)));
+    setCaesarCapital(String(draft.startUnits.caesar ?? ""));
+    setFeliciaCapital(String(draft.startUnits.felicia ?? ""));
+    setCaesarFormal(
+      draft.formalOwnership?.caesar === undefined ? "" : String(draft.formalOwnership.caesar * 100),
+    );
+    setFeliciaFormal(
+      draft.formalOwnership?.felicia === undefined
+        ? ""
+        : String(draft.formalOwnership.felicia * 100),
+    );
+  }, [draft, draftQuery.isFetched]);
+
+  const values = useMemo(
+    () => ({
+      startValue: asNumber(startValue),
+      initialLoan: asNumber(initialLoan),
+      caesarCapital: asNumber(caesarCapital),
+      feliciaCapital: asNumber(feliciaCapital),
+      caesarFormal: asNumber(caesarFormal),
+      feliciaFormal: asNumber(feliciaFormal),
+    }),
+    [startValue, initialLoan, caesarCapital, feliciaCapital, caesarFormal, feliciaFormal],
+  );
+  const netEquity = values.startValue - values.initialLoan;
+  const capitalTotal = values.caesarCapital + values.feliciaCapital;
+  const financingMatches =
+    Number.isFinite(netEquity) && netEquity > 0 && netEquity === capitalTotal;
+  const ownershipMatches =
+    Number.isFinite(values.caesarFormal) &&
+    Number.isFinite(values.feliciaFormal) &&
+    Math.abs(values.caesarFormal + values.feliciaFormal - 100) < 0.000001;
+
+  const save = useMutation({
+    mutationFn: () =>
+      createInitialAgreementDraft({
+        data: {
+          householdId: household!.id,
+          address,
+          association: association || undefined,
+          apartmentNumber: apartmentNumber || undefined,
+          startDate,
+          startValueKr: values.startValue,
+          initialLoanKr: values.initialLoan,
+          caesarCapitalKr: values.caesarCapital,
+          feliciaCapitalKr: values.feliciaCapital,
+          caesarFormalPercent: values.caesarFormal,
+          feliciaFormalPercent: values.feliciaFormal,
+        },
+      }),
+    onSuccess: (result) => {
+      toast.success(`Avtalsutkast version ${result.version} sparat`);
+      setEditing(false);
+      void queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => toast.error(error.message || "Kunde inte spara uppgifterna."),
+  });
+
+  if (!household) return null;
+  const hasBothParties =
+    household.parties.length === 2 &&
+    household.parties.some((party) => party.partyId === "caesar") &&
+    household.parties.some((party) => party.partyId === "felicia");
+
+  if (!hasBothParties) {
+    return (
+      <section className="tile-surface p-5">
+        <p className="eyebrow">Nästa steg</p>
+        <h2 className="mt-1 text-lg font-medium">Bjud in motparten först</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Startuppgifterna öppnas när både Caesar och Felicia har skapat sina konton. Ingen av dem
+          kan ensam göra ett avtalsutkast gällande.
+        </p>
+        <Button asChild variant="outline" size="sm" className="mt-4">
+          <Link to="/overenskommelse/parter">Gå till Parter</Link>
+        </Button>
+      </section>
+    );
+  }
+
+  if (draft && !editing) {
+    return (
+      <section className="tile-surface mt-4 p-5">
+        <p className="eyebrow">Behöver något rättas?</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Skapa en korrigerad version innan avtalet börjar gälla. Tidigare godkännanden följer inte
+          med; båda måste granska den nya versionen på nytt.
+        </p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => setEditing(true)}>
+          Ändra startuppgifterna
+        </Button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="tile-surface mt-4 p-5">
+      <p className="eyebrow">{draft ? "Korrigerat utkast" : "Gemensam uppstart"}</p>
+      <h2 className="mt-1 text-lg font-medium">Fyll i bostaden och startvärdena</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Den som fyller i skapar bara ett utkast. Ingenting börjar gälla förrän både Caesar och
+        Felicia har kontrollerat och godkänt samma version.
+      </p>
+
+      {draft && (
+        <p className="mt-3 rounded-md bg-secondary p-3 text-sm">
+          Det här skapar version {draft.version + 1}. Version {draft.version} ligger kvar i
+          historiken men kan inte längre godkännas som den senaste versionen.
+        </p>
+      )}
+
+      <form
+        className="mt-5 grid gap-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          save.mutate();
+        }}
+      >
+        <fieldset className="grid gap-3 sm:grid-cols-2">
+          <legend className="eyebrow mb-3 sm:col-span-2">Bostaden</legend>
+          <Field label="Adress" id="setup-address" wide>
+            <Input
+              id="setup-address"
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Bostadsrättsförening" id="setup-association">
+            <Input
+              id="setup-association"
+              value={association}
+              onChange={(event) => setAssociation(event.target.value)}
+            />
+          </Field>
+          <Field label="Lägenhetsnummer" id="setup-apartment">
+            <Input
+              id="setup-apartment"
+              value={apartmentNumber}
+              onChange={(event) => setApartmentNumber(event.target.value)}
+            />
+          </Field>
+        </fieldset>
+
+        <fieldset className="grid gap-3 sm:grid-cols-2">
+          <legend className="eyebrow mb-3 sm:col-span-2">Köp och finansiering</legend>
+          <Field label="Startdag/tillträdesdag" id="setup-date">
+            <Input
+              id="setup-date"
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Bostadens startvärde (kr)" id="setup-value">
+            <MoneyInput id="setup-value" value={startValue} setValue={setStartValue} />
+          </Field>
+          <Field label="Bolån på startdagen (kr)" id="setup-loan">
+            <MoneyInput id="setup-loan" value={initialLoan} setValue={setInitialLoan} />
+          </Field>
+          <div className="rounded-md border border-hairline p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Nettokapital vid start</p>
+            <p className="tabular mt-0.5 font-medium">
+              {Number.isFinite(netEquity) ? fmtKr(netEquity) : "–"}
+            </p>
+          </div>
+          <Field label="Caesars kapitalinsats (kr)" id="setup-caesar-capital">
+            <MoneyInput
+              id="setup-caesar-capital"
+              value={caesarCapital}
+              setValue={setCaesarCapital}
+            />
+          </Field>
+          <Field label="Felicias kapitalinsats (kr)" id="setup-felicia-capital">
+            <MoneyInput
+              id="setup-felicia-capital"
+              value={feliciaCapital}
+              setValue={setFeliciaCapital}
+            />
+          </Field>
+          <p
+            className={`sm:col-span-2 text-sm ${financingMatches ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            Kapitalinsatserna är {Number.isFinite(capitalTotal) ? fmtKr(capitalTotal) : "–"} och ska
+            tillsammans vara lika med nettokapitalet{" "}
+            {Number.isFinite(netEquity) ? fmtKr(netEquity) : "–"}.
+          </p>
+        </fieldset>
+
+        <fieldset className="grid gap-3 sm:grid-cols-2">
+          <legend className="eyebrow mb-3 sm:col-span-2">Formell ägarandel</legend>
+          <Field label="Caesar (%)" id="setup-caesar-formal">
+            <PercentInput
+              id="setup-caesar-formal"
+              value={caesarFormal}
+              setValue={setCaesarFormal}
+            />
+          </Field>
+          <Field label="Felicia (%)" id="setup-felicia-formal">
+            <PercentInput
+              id="setup-felicia-formal"
+              value={feliciaFormal}
+              setValue={setFeliciaFormal}
+            />
+          </Field>
+          <p
+            className={`sm:col-span-2 text-sm ${ownershipMatches ? "text-muted-foreground" : "text-destructive"}`}
+          >
+            De formella ägarandelarna ska tillsammans vara 100 %. De hålls helt åtskilda från de
+            interna ekonomiska andelarna.
+          </p>
+        </fieldset>
+
+        <div className="flex flex-wrap gap-2 border-t border-hairline pt-4">
+          <Button type="submit" disabled={save.isPending || !financingMatches || !ownershipMatches}>
+            Spara som avtalsutkast
+          </Button>
+          {draft && (
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+              Avbryt
+            </Button>
+          )}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  id,
+  wide,
+  children,
+}: {
+  label: string;
+  id: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`grid gap-1.5 ${wide ? "sm:col-span-2" : ""}`}>
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function MoneyInput({
+  id,
+  value,
+  setValue,
+}: {
+  id: string;
+  value: string;
+  setValue: (value: string) => void;
+}) {
+  return (
+    <Input
+      id={id}
+      type="number"
+      min="0"
+      step="1"
+      inputMode="numeric"
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      required
+    />
+  );
+}
+
+function PercentInput({
+  id,
+  value,
+  setValue,
+}: {
+  id: string;
+  value: string;
+  setValue: (value: string) => void;
+}) {
+  return (
+    <Input
+      id={id}
+      type="number"
+      min="0"
+      max="100"
+      step="0.01"
+      inputMode="decimal"
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      required
+    />
+  );
+}

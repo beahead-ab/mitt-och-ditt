@@ -13,12 +13,12 @@ Postgres – plus en valfri Caddy-container som sköter domän och certifikat. I
 molnleverantörs-specifik tjänst används någonstans, så en flytt är att kopiera
 `compose.yaml`, en databasdump och en katalog med bilagor.
 
-| Alternativ | Kostnad/mån | Flyttbart | Bedömning |
-|---|---|---|---|
-| **Droplet + Docker Compose** | ca 12 USD | Helt | **Valt.** Billigast, inga bindningar, allt i ett repo. |
-| DigitalOcean App Platform + Managed Postgres | ca 25–30 USD | Delvis | Mindre drift men dubbla kostnaden, och databasen blir leverantörsbunden. |
-| Managed Postgres till droppen | +15 USD | Delvis | Bra automatiska säkerhetskopior, men onödigt för två användare. Skriptet i `deploy/backup.sh` räcker. |
-| Supabase (som Bilkollen) | 0–25 USD | Nej | Uteslutet: hela poängen var att slippa SaaS-bindningen. |
+| Alternativ                                   | Kostnad/mån  | Flyttbart | Bedömning                                                                                             |
+| -------------------------------------------- | ------------ | --------- | ----------------------------------------------------------------------------------------------------- |
+| **Droplet + Docker Compose**                 | ca 12 USD    | Helt      | **Valt.** Billigast, inga bindningar, allt i ett repo.                                                |
+| DigitalOcean App Platform + Managed Postgres | ca 25–30 USD | Delvis    | Mindre drift men dubbla kostnaden, och databasen blir leverantörsbunden.                              |
+| Managed Postgres till droppen                | +15 USD      | Delvis    | Bra automatiska säkerhetskopior, men onödigt för två användare. Skriptet i `deploy/backup.sh` räcker. |
+| Supabase (som Bilkollen)                     | 0–25 USD     | Nej       | Uteslutet: hela poängen var att slippa SaaS-bindningen.                                               |
 
 Rekommenderad storlek: **2 GB RAM / 1 vCPU** (Basic Regular, ca 12 USD/mån) i
 regionen Frankfurt eller Amsterdam. Två användare belastar inget, men bygget
@@ -30,15 +30,15 @@ säkerhetskopiorna i DigitalOcean Spaces (5 USD/mån).
 
 ## 2. Teknikval i korthet
 
-| Lager | Val | Varför |
-|---|---|---|
-| Ramverk | TanStack Start (React 19) | Samma som Bilkollen, så designsystem och kodmönster kan delas mellan systerprodukterna. Bygger till en vanlig Node-server. |
-| Server | Nitro, preset `node-server` | En enda `node .output/server/index.mjs`. Ingen serverless-bindning. |
-| Stil | Tailwind v4 med Bilkollens tokens | Identiskt visuellt uttryck. |
-| Databas | Postgres 17 i container | Standard-SQL, dumpas och flyttas med `pg_dump`. |
-| Inloggning | Egen sessionshantering, endast inbjudna | Ingen tredjepartsberoende för något så centralt. Byggs i etapp 2. |
-| Bilagor | Volym på servern, aldrig publik | Enkelt och privat. Kan bytas mot S3-kompatibel lagring utan att koden ändras. |
-| Tester | Vitest | Beräkningsmotorn är ren och testas utan webbläsare eller databas. |
+| Lager      | Val                                     | Varför                                                                                                                     |
+| ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Ramverk    | TanStack Start (React 19)               | Samma som Bilkollen, så designsystem och kodmönster kan delas mellan systerprodukterna. Bygger till en vanlig Node-server. |
+| Server     | Nitro, preset `node-server`             | En enda `node .output/server/index.mjs`. Ingen serverless-bindning.                                                        |
+| Stil       | Tailwind v4 med Bilkollens tokens       | Identiskt visuellt uttryck.                                                                                                |
+| Databas    | Postgres 17 i container                 | Standard-SQL, dumpas och flyttas med `pg_dump`.                                                                            |
+| Inloggning | Egen sessionshantering, endast inbjudna | Ingen tredjepartsberoende för något så centralt. Byggs i etapp 2.                                                          |
+| Bilagor    | Volym på servern, aldrig publik         | Enkelt och privat. Kan bytas mot S3-kompatibel lagring utan att koden ändras.                                              |
+| Tester     | Vitest                                  | Beräkningsmotorn är ren och testas utan webbläsare eller databas.                                                          |
 
 ## 3. Köra lokalt
 
@@ -73,9 +73,10 @@ transaktion. Ett par användare behöver ingen migreringsmotor. De tål också a
 köras samtidigt från flera containrar: applikationsrollen hör till hela
 databasservern, så den skapas med ett fel som sväljs om någon annan hann före.
 
-Seed-skriptet är idempotent. Det skapar hushållet, avtalsversionen som **utkast**
-med startvärdena ur avtalets punkt 2 och grundklassificeringen ur punkt 7, samt en
-inbjudningslänk per part. Länkarna visas en enda gång och är giltiga i sju dagar.
+Seed-skriptet är idempotent. Det skapar ett tomt hushåll, administratörskontot
+och Caesars första inbjudningslänk. Det lägger inte in någon adress eller några
+ekonomiska värden. Caesar bjuder in Felicia, och därefter fyller parterna själva
+i startuppgifterna och godkänner dem var för sig.
 
 **Två databasroller används.** `mittochditt_owner` äger schemat och kör
 migreringar. Applikationen använder `mittochditt_app`, som lyder under
@@ -149,14 +150,14 @@ APP_DOMAIN=mittochditt.goodstuff.se
 APP_URL=https://mittochditt.goodstuff.se
 SEED_ADMIN_EMAIL=din@adress.se
 SEED_CAESAR_EMAIL=caesars@adress.se
-SEED_FELICIA_EMAIL=felicias@adress.se
+SEED_FELICIA_EMAIL=
 ENV
 chmod 600 .env
 ```
 
-Sätt de tre e-postadresserna till riktiga innan seed körs. De blir kontonas
-identitet, och adressen är det man loggar in med. Att byta dem efteråt går, men
-är onödigt pillande.
+Sätt administratörens och Caesars e-postadresser till riktiga innan seed körs.
+De blir kontonas identitet. Lämna `SEED_FELICIA_EMAIL` tom när Caesar ska bjuda
+in Felicia från tjänsten.
 
 `APP_URL` används både i inbjudningslänkarna och i csrf-kontrollen. Bakom
 proxyn ser appen sin interna adress, så utan den skulle kontrollen jämföra mot
@@ -227,7 +228,7 @@ dig +short mittochditt.goodstuff.se
 ```
 
 Båda ska svara med maskinens IP, och ingenting annat. Ligger domänen bakom en
-proxy som Cloudflare måste den stå i genomsläppsläge – *DNS only*, grå
+proxy som Cloudflare måste den stå i genomsläppsläge – _DNS only_, grå
 molnikon. Med proxyn på träffar utmaningen proxyn i stället för maskinen, och
 är "Always Use HTTPS" påslaget skickas den vidare till https innan Caddy har
 något certifikat att svara med. Kontrollera också att ingen AAAA-post finns:
@@ -264,9 +265,11 @@ värdena inte in, och skriptet skulle tyst falla tillbaka på exempeladresserna.
 docker compose exec app node .output/scripts/seed.mjs
 ```
 
-Seed skapar hushållet, avtalsversionen som **utkast** med startvärdena ur
-avtalets punkt 2, grundklassificeringen ur punkt 7, och skriver ut en
-inbjudningslänk per part. Länkarna visas en enda gång och gäller i sju dagar.
+Seed skapar det tomma hushållet och skriver ut Caesars inbjudningslänk. Om
+`SEED_FELICIA_EMAIL` har ett värde skapas även Felicias länk. Lämnas den tom
+bjuder Caesar in Felicia under **Överenskommelse → Parter**. En part kan bara
+bjuda in den saknade motparten till sitt eget hushåll. Länkarna visas en enda
+gång och gäller i sju dagar.
 
 Administratörskontot skapas utan lösenord, eftersom det inte kommer till genom
 en inbjudan. Sätt det:
@@ -279,16 +282,22 @@ Adressen är den du satte som `SEED_ADMIN_EMAIL`.
 
 ### 5.7 Innan Caesar och Felicia godkänner avtalet
 
-Avtalets `[●]`-fält måste fyllas i med verkliga siffror. Kontrollera särskilt:
+När båda har anslutit öppnas uppstartsformuläret under **Överenskommelse**.
+Caesar eller Felicia fyller i uppgifterna; det skapar bara ett utkast. Den
+andra parten kontrollerar samma version, och ingenting börjar gälla innan båda
+har godkänt. Kontrollera särskilt:
 
 - **startdagen** – tillträdesdagen för det gemensamma förvärvet,
 - **startvärdet** – den faktiska köpeskillingen,
 - **kapitalinsatserna** – styrkta belopp, inte planerade,
-- **bostadens adress** – sätts under Systemadmin → Hushåll.
+- **bolånet på startdagen**,
+- **formella ägarandelar** – separata från de interna ekonomiska andelarna,
+- **bostadens adress, förening och lägenhetsnummer**.
 
-Startenheterna följer av kapitalinsatserna: en enhet per krona. Avtalsversionen
-börjar gälla först när båda parter godkänt den, och först då räknar tjänsten
-något.
+Formuläret kräver att kapitalinsatserna tillsammans är lika med startvärdet
+minus bolånet och att de formella ägarandelarna blir 100 procent. Startenheterna
+följer av kapitalinsatserna: en enhet per krona. Ett ensamt första konto kan
+aldrig göra avtalet gällande.
 
 ### 5.8 Uppdatera senare
 

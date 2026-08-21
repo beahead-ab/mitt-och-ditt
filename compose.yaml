@@ -32,8 +32,6 @@ services:
       - SEED_ADMIN_EMAIL
       - SEED_CAESAR_EMAIL
       - SEED_FELICIA_EMAIL
-      - SEED_ADDRESS
-      - SEED_START_DATE
     volumes:
       # Bilagor ligger utanför containern så att de överlever en omstart.
       - uploads:/data/uploads

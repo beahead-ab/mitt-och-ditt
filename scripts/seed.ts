@@ -1,6 +1,8 @@
 /**
- * Skapar hushållet för Caesar och Felicia med startvärdena ur avtalets punkt 2,
- * grundklassificeringen ur punkt 7 och en inbjudan per part.
+ * Skapar det tomma hushållet för Caesar och Felicia och den första partens inbjudan. Om
+ * SEED_FELICIA_EMAIL anges kan även Felicias länk skapas direkt; annars
+ * bjuder Caesar in henne från sidan Överenskommelse > Parter. Bostadens och
+ * avtalets uppgifter fyller parterna själva i efter att båda har anslutit.
  *
  * Kör med:  npm run db:seed
  *
@@ -10,22 +12,23 @@
 import { migrate } from "../src/lib/db/migrate.server";
 import { owner } from "../src/lib/db/client.server";
 import { INVITE_DAYS, expiresIn, hashToken, newToken } from "../src/lib/auth/tokens";
-import { defaultCategoryRules, kr } from "../src/lib/engine";
 
-const START_DATE = process.env.SEED_START_DATE ?? "2026-08-17";
-const PARTIES = [
+const feliciaEmail = process.env.SEED_FELICIA_EMAIL?.trim();
+const PARTIES_TO_INVITE = [
   {
     partyId: "caesar",
     name: "Caesar",
     email: process.env.SEED_CAESAR_EMAIL ?? "caesar@example.se",
-    units: 1_200_000,
   },
-  {
-    partyId: "felicia",
-    name: "Felicia",
-    email: process.env.SEED_FELICIA_EMAIL ?? "felicia@example.se",
-    units: 180_000,
-  },
+  ...(feliciaEmail
+    ? [
+        {
+          partyId: "felicia",
+          name: "Felicia",
+          email: feliciaEmail,
+        },
+      ]
+    : []),
 ];
 
 async function main() {
@@ -44,13 +47,8 @@ async function main() {
           insert into households (name) values ('Caesar & Felicia') returning id`
       )[0].id;
 
-    await tx`
-      insert into properties (household_id, address)
-      select ${householdId}, ${process.env.SEED_ADDRESS ?? "Adress fylls i"}
-      where not exists (select 1 from properties where household_id = ${householdId})
-    `;
-
-    // Systemadministratören behövs för att kunna skapa avtalsversionen.
+    // Administratören hanterar bara åtkomst. Bostads- och avtalsuppgifter
+    // fyller parterna själva i och godkänner var för sig.
     const [admin] = await tx<{ id: string }[]>`
       insert into users (email, name, is_admin)
       values (${process.env.SEED_ADMIN_EMAIL ?? "admin@example.se"}, 'Administratör', true)
@@ -60,57 +58,14 @@ async function main() {
 
     const agreementRows = await tx<{ id: string }[]>`
       select id from agreements where household_id = ${householdId}`;
-    const agreementId =
-      agreementRows[0]?.id ??
-      (
-        await tx<{ id: string }[]>`
-          insert into agreements (household_id) values (${householdId}) returning id`
-      )[0].id;
-
-    const versions = await tx<{ id: string }[]>`
-      select id from agreement_versions where agreement_id = ${agreementId}`;
-    if (versions.length === 0) {
-      // Startvärdena är [●]-fält i avtalet och måste fyllas i med verkliga
-      // siffror, så versionen läggs som utkast och båda parter får granska
-      // och godkänna den innan något beräknas.
-      // Formella ägarandelar lämnas tomma och sätts aldrig automatiskt lika
-      // med de interna andelarna.
-      await tx`
-        insert into agreement_versions (
-          agreement_id, version, start_date, start_value_ore, initial_loan_ore,
-          total_units, start_units, formal_ownership, created_by, reason
-        ) values (
-          ${agreementId}, 1, ${START_DATE}, ${kr(4_495_000)}, ${kr(3_115_000)},
-          ${1_380_000}, ${sql.json(Object.fromEntries(PARTIES.map((p) => [p.partyId, p.units])))},
-          ${sql.json({ caesar: null, felicia: null })}, ${admin.id},
-          'Startvärden ur avtalets punkt 2'
-        )
-      `;
-    }
-
-    const rules = await tx<{ id: string }[]>`
-      select id from cost_category_rules where household_id = ${householdId} limit 1`;
-    if (rules.length === 0) {
-      // Grundklassificeringen står i det undertecknade avtalets punkt 7 och
-      // gäller därmed direkt. Den behöver inget godkännande i tjänsten –
-      // parterna har redan skrivit under den. Senare ändringar av ett
-      // kostnadsslag kräver däremot bådas godkännande enligt punkt 25.2.
-      for (const rule of defaultCategoryRules(START_DATE)) {
-        await tx`
-          insert into cost_category_rules (
-            household_id, category, effective_from, included, reduces_loan,
-            created_by, reason, effective_at
-          ) values (
-            ${householdId}, ${rule.category}, ${rule.effectiveFrom}, ${rule.included},
-            ${rule.reducesLoan ?? false}, ${admin.id},
-            'Grundklassificering ur avtalets punkt 7', now()
-          )
-        `;
-      }
+    if (agreementRows.length === 0) {
+      // Själva behållaren har inga ekonomiska uppgifter. Första versionen
+      // skapas av Caesar eller Felicia i tjänstens gemensamma uppstartsflöde.
+      await tx`insert into agreements (household_id) values (${householdId})`;
     }
 
     const created: { name: string; email: string; url: string }[] = [];
-    for (const party of PARTIES) {
+    for (const party of PARTIES_TO_INVITE) {
       const member = await tx<{ id: string }[]>`
         select m.id from household_members m join users u on u.id = m.user_id
         where m.household_id = ${householdId} and lower(u.email) = ${party.email.toLowerCase()}
@@ -140,7 +95,7 @@ async function main() {
   });
 
   if (links.length === 0) {
-    console.log("Hushållet finns redan och båda parter har konto eller en öppen inbjudan.");
+    console.log("Hushållet finns redan och alla valda parter har konto eller en öppen inbjudan.");
   } else {
     console.log("\nInbjudningslänkar – giltiga i sju dagar, visas bara denna gång:\n");
     for (const link of links) {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { pendingAgreement } from "@/lib/agreement.functions";
 import { isDemo } from "@/lib/demo";
 import { toKronor } from "@/lib/engine";
-import { fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
+import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
 import { approveDocumentFn } from "@/lib/transactions.functions";
 
 /**
@@ -53,6 +53,7 @@ export function AgreementApproval() {
     <section className="tile-surface p-5">
       <p className="eyebrow">Överenskommelse att godkänna · version {draft.version}</p>
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        {household.propertyAddress && <Row label="Bostad" value={household.propertyAddress} />}
         <Row label="Startdag" value={fmtDate(draft.startDate)} />
         <Row label="Startvärde" value={fmtKr(toKronor(draft.startValue))} />
         <Row label="Bolån på startdagen" value={fmtKr(toKronor(draft.initialLoan))} />
@@ -64,8 +65,20 @@ export function AgreementApproval() {
             value={fmtEnheter(units)}
           />
         ))}
+        {Object.entries(draft.formalOwnership ?? {}).map(([partyId, share]) => (
+          <Row
+            key={`formal-${partyId}`}
+            label={`Formell ägarandel ${names[partyId] ?? partyId}`}
+            value={fmtAndel(share)}
+          />
+        ))}
       </dl>
       {draft.reason && <p className="mt-3 text-xs text-muted-foreground">{draft.reason}</p>}
+      {draft.checksum && (
+        <p className="mt-1 break-all font-mono text-[0.68rem] text-muted-foreground">
+          Kontrollsumma {draft.checksum}
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
         <Button

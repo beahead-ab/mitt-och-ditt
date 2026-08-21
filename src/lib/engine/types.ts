@@ -25,6 +25,8 @@ export type AgreementParams = {
   parties: [PartyId, PartyId];
   /** Startenheter per part – normalt en enhet per krona styrkt kapital (avtal 2.2). */
   startUnits: ByParty<number>;
+  /** Formell ägarandel enligt köpehandling/förening. Påverkar inte motorn. */
+  formalOwnership?: ByParty<number>;
   /**
    * Totalt antal andelsenheter. Normalt summan av startenheterna. Modellen
    * flyttar enheter mellan parterna men skapar aldrig nya (avtal 6.2).

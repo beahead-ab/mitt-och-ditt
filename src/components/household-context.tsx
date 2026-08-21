@@ -8,6 +8,8 @@ export type Household = {
   id: string;
   name: string;
   propertyAddress: string | null;
+  propertyAssociation: string | null;
+  apartmentNumber: string | null;
   parties: { partyId: string; userId: string; name: string }[];
 };
 
@@ -29,6 +31,8 @@ const DEMO: Household = {
   id: DEMO_HOUSEHOLD.id,
   name: DEMO_HOUSEHOLD.name,
   propertyAddress: DEMO_HOUSEHOLD.propertyAddress,
+  propertyAssociation: null,
+  apartmentNumber: null,
   parties: [
     { partyId: "caesar", userId: "demo-caesar", name: "Caesar" },
     { partyId: "felicia", userId: "demo-felicia", name: "Felicia" },

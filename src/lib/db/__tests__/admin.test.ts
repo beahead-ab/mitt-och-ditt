@@ -233,7 +233,7 @@ describeDb("En vanlig part är inte administratör", () => {
     expect(row.disabled_at).toBeNull();
   });
 
-  it("kan inte skapa en inbjudan", async () => {
+  it("kan inte skapa en valfri inbjudan", async () => {
     const rejected = await isRejected(() =>
       asUser(
         app,
@@ -241,6 +241,149 @@ describeDb("En vanlig part är inte administratör", () => {
         (tx) => tx`insert into invites
           (email, token_hash, household_id, party_id, display_name, expires_at)
           values ('smyg@x.se', 'hash3', ${ids.household}, 'z', 'Z', now() + interval '7 days')`,
+      ),
+    );
+    expect(rejected).toBe(true);
+  });
+
+  it("kan bara bjuda in den saknade motparten till sitt eget hushåll", async () => {
+    const [caesarsHousehold] = await owner`
+      insert into households (name) values ('Caesars nya hushåll') returning id`;
+    await owner`
+      insert into household_members (household_id, user_id, party_id, display_name)
+      values (${caesarsHousehold.id}, ${ids.caesar}, 'caesar', 'Caesar')`;
+
+    const [invite] = await asUser(
+      app,
+      ids.caesar,
+      (tx) => tx`insert into invites
+        (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
+        values ('felicia.ny@x.se', 'partner-hash-1', ${caesarsHousehold.id}, 'felicia',
+                'Felicia', ${ids.caesar}, now() + interval '7 days')
+        returning id`,
+    );
+    expect(invite.id).toBeTruthy();
+
+    const ownRole = await isRejected(() =>
+      asUser(
+        app,
+        ids.caesar,
+        (tx) => tx`insert into invites
+          (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
+          values ('caesar.ny@x.se', 'partner-hash-2', ${caesarsHousehold.id}, 'caesar',
+                  'Caesar', ${ids.caesar}, now() + interval '7 days')`,
+      ),
+    );
+    expect(ownRole).toBe(true);
+
+    const otherHousehold = await isRejected(() =>
+      asUser(
+        app,
+        ids.felicia,
+        (tx) => tx`insert into invites
+          (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
+          values ('smyg@x.se', 'partner-hash-3', ${caesarsHousehold.id}, 'caesar',
+                  'Smyg', ${ids.felicia}, now() + interval '7 days')`,
+      ),
+    );
+    expect(otherHousehold).toBe(true);
+
+    const rewrite = await isRejected(() =>
+      asUser(
+        app,
+        ids.caesar,
+        (tx) => tx`update invites
+          set email = 'annan@x.se', revoked_at = now()
+          where id = ${invite.id}`,
+      ),
+    );
+    expect(rewrite).toBe(true);
+
+    await asUser(
+      app,
+      ids.caesar,
+      (tx) => tx`update invites set revoked_at = now() where id = ${invite.id}`,
+    );
+    const [revoked] = await owner`select email, revoked_at from invites where id = ${invite.id}`;
+    expect(revoked.email).toBe("felicia.ny@x.se");
+    expect(revoked.revoked_at).not.toBeNull();
+
+    const [feliciasHousehold] = await owner`
+      insert into households (name) values ('Felicias nya hushåll') returning id`;
+    await owner`
+      insert into household_members (household_id, user_id, party_id, display_name)
+      values (${feliciasHousehold.id}, ${ids.felicia}, 'felicia', 'Felicia')`;
+    const [symmetric] = await asUser(
+      app,
+      ids.felicia,
+      (tx) => tx`insert into invites
+        (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
+        values ('caesar.ny@x.se', 'partner-hash-4', ${feliciasHousehold.id}, 'caesar',
+                'Caesar', ${ids.felicia}, now() + interval '7 days')
+        returning id`,
+    );
+    expect(symmetric.id).toBeTruthy();
+  });
+
+  it("kan aldrig göra ett avtal gällande innan motparten har anslutit", async () => {
+    const [household] = await owner`
+      insert into households (name) values ('Ensam part') returning id`;
+    await owner`
+      insert into household_members (household_id, user_id, party_id, display_name)
+      values (${household.id}, ${ids.caesar}, 'caesar', 'Caesar')`;
+    const [agreement] = await owner`
+      insert into agreements (household_id) values (${household.id}) returning id`;
+    const [version] = await owner`
+      insert into agreement_versions (
+        agreement_id, version, start_date, start_value_ore, initial_loan_ore,
+        total_units, start_units, created_by
+      ) values (
+        ${agreement.id}, 1, '2026-09-01', 200000000, 100000000, 1000000,
+        '{"caesar": 500000, "felicia": 500000}'::jsonb, ${ids.caesar}
+      ) returning id`;
+
+    await asUser(
+      app,
+      ids.caesar,
+      (tx) => tx`insert into document_approvals
+        (entity_type, entity_id, household_id, user_id, party_id, decision)
+        values ('agreement_version', ${version.id}, ${household.id}, ${ids.caesar},
+                'caesar', 'approved')`,
+    );
+
+    const [after] = await owner`
+      select effective_at from agreement_versions where id = ${version.id}`;
+    expect(after.effective_at).toBeNull();
+  });
+
+  it("kan inte godkänna ett utkast som har ersatts av en nyare version", async () => {
+    const [agreement] = await owner`
+      insert into agreements (household_id) values (${ids.household}) returning id`;
+    const [oldVersion] = await owner`
+      insert into agreement_versions (
+        agreement_id, version, start_date, start_value_ore, initial_loan_ore,
+        total_units, start_units, created_by
+      ) values (
+        ${agreement.id}, 1, '2026-09-01', 200000000, 100000000, 1000000,
+        '{"caesar": 500000, "felicia": 500000}'::jsonb, ${ids.caesar}
+      ) returning id`;
+    await owner`
+      insert into agreement_versions (
+        agreement_id, version, start_date, start_value_ore, initial_loan_ore,
+        total_units, start_units, created_by
+      ) values (
+        ${agreement.id}, 2, '2026-09-02', 200000000, 100000000, 1000000,
+        '{"caesar": 500000, "felicia": 500000}'::jsonb, ${ids.caesar}
+      )`;
+
+    const rejected = await isRejected(() =>
+      asUser(
+        app,
+        ids.caesar,
+        (tx) => tx`insert into document_approvals
+          (entity_type, entity_id, household_id, user_id, party_id, decision)
+          values ('agreement_version', ${oldVersion.id}, ${ids.household}, ${ids.caesar},
+                  'caesar', 'approved')`,
       ),
     );
     expect(rejected).toBe(true);

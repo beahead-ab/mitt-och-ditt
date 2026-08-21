@@ -1,7 +1,7 @@
 import type postgres from "postgres";
 
 import { asUser } from "./client.server";
-import type { PartyPayment } from "@/lib/engine";
+import { defaultCategoryRules, type PartyPayment } from "@/lib/engine";
 
 export type TransactionInput = {
   householdId: string;
@@ -300,6 +300,36 @@ export async function approveDocument(
         (entity_type, entity_id, household_id, user_id, party_id, decision)
       values (${entityType}, ${entityId}, ${householdId}, ${userId}, ${partyId}, 'approved')
     `;
+
+    // När den andra parten godkänner den första avtalsversionen har triggern
+    // precis satt effective_at. Först då läggs avtalets grundklassificeringar
+    // in. Ett ensamt konto kan alltså varken aktivera avtalet eller reglerna.
+    if (entityType === "agreement_version") {
+      const [agreement] = await sql<{ start_date: string; effective_at: Date | null }[]>`
+        select start_date, effective_at from agreement_versions where id = ${entityId}
+      `;
+      const [existingRule] = await sql<{ id: string }[]>`
+        select id from cost_category_rules where household_id = ${householdId} limit 1
+      `;
+      if (agreement?.effective_at && !existingRule) {
+        const startDate =
+          typeof agreement.start_date === "string"
+            ? agreement.start_date.slice(0, 10)
+            : new Date(agreement.start_date).toISOString().slice(0, 10);
+        for (const rule of defaultCategoryRules(startDate)) {
+          await sql`
+            insert into cost_category_rules (
+              household_id, category, effective_from, included, reduces_loan,
+              created_by, reason, effective_at
+            ) values (
+              ${householdId}, ${rule.category}, ${rule.effectiveFrom}, ${rule.included},
+              ${rule.reducesLoan ?? false}, ${userId},
+              'Grundklassificering ur det gemensamt godkända startavtalet', now()
+            )
+          `;
+        }
+      }
+    }
     await sql`
       insert into audit_events
         (household_id, event_type, entity_type, entity_id, actor_id, new_value)
