@@ -4,11 +4,17 @@
 -- ingenting alls om app.user_id saknas. Spärrarna ligger i databasen, inte i
 -- gränssnittet: ett fel i en serverfunktion ska inte kunna läcka data.
 
+-- Rollen är gemensam för hela servern, inte för en enskild databas. Att först
+-- fråga om den finns och sedan skapa den är därför inte atomiskt: kör två
+-- migreringar samtidigt - två testfiler mot samma server, eller två
+-- containrar som startar ihop - hinner båda se att rollen saknas och båda
+-- försöka skapa den. Den ena får då ett unikhetsfel och migreringen avbryts.
+-- Vi skapar i stället rollen och sväljer felet om någon annan hann före.
 do $$
 begin
-  if not exists (select 1 from pg_roles where rolname = 'mittochditt_app') then
-    create role mittochditt_app nologin;
-  end if;
+  create role mittochditt_app nologin;
+exception
+  when duplicate_object or unique_violation then null;
 end
 $$;
 
