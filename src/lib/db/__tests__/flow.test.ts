@@ -4,7 +4,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { asUser, appSql, isRejected, ownerSql } from "./helpers";
+import { asUser, appSql, databaseAvailable, isRejected, ownerSql } from "./helpers";
 
 /**
  * Hela godkännandeflödet mot en riktig Postgres. Övergången till "gäller"
@@ -60,7 +60,15 @@ async function versionState(versionId: string) {
   return row;
 }
 
+/**
+ * Utan databas hoppas sviten över lokalt. I CI kastar databaseAvailable()
+ * i stället – säkerhetstester som tyst försvinner är farligare än inga alls.
+ */
+const available = await databaseAvailable();
+const describeDb = available ? describe : describe.skip;
+
 beforeAll(async () => {
+  if (!available) return;
   admin = ownerSql("postgres");
   await admin`drop database if exists ${admin.unsafe(DB)}`;
   await admin`create database ${admin.unsafe(DB)}`;
@@ -88,13 +96,14 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
+  if (!available) return;
   await app?.end();
   await owner?.end();
   await admin`drop database if exists ${admin.unsafe(DB)}`;
   await admin?.end();
 });
 
-describe("Godkännandeflödet", () => {
+describeDb("Godkännandeflödet", () => {
   it("posten börjar gälla först när båda godkänt", async () => {
     const { versionId } = await newTransaction(ids.caesar, "T-0001");
 
@@ -206,7 +215,7 @@ describe("Godkännandeflödet", () => {
   });
 });
 
-describe("Avtal och klassificeringar", () => {
+describeDb("Avtal och klassificeringar", () => {
   it("en avtalsversion börjar gälla när båda godkänt", async () => {
     const [agreement] = await owner`
       insert into agreements (household_id) values (${ids.household}) returning id`;

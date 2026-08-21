@@ -4,7 +4,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { asUser, appSql, isRejected, ownerSql } from "./helpers";
+import { asUser, appSql, databaseAvailable, isRejected, ownerSql } from "./helpers";
 
 const DB = "mittochditt_rls_test";
 
@@ -23,7 +23,15 @@ const ids = {
   version: "",
 };
 
+/**
+ * Utan databas hoppas sviten över lokalt. I CI kastar databaseAvailable()
+ * i stället – säkerhetstester som tyst försvinner är farligare än inga alls.
+ */
+const available = await databaseAvailable();
+const describeDb = available ? describe : describe.skip;
+
 beforeAll(async () => {
+  if (!available) return;
   admin = ownerSql("postgres");
   await admin`drop database if exists ${admin.unsafe(DB)}`;
   await admin`create database ${admin.unsafe(DB)}`;
@@ -74,13 +82,14 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
+  if (!available) return;
   await app?.end();
   await owner?.end();
   await admin`drop database if exists ${admin.unsafe(DB)}`;
   await admin?.end();
 });
 
-describe("Åtkomst till hushåll", () => {
+describeDb("Åtkomst till hushåll", () => {
   it("en medlem ser sitt eget hushåll", async () => {
     const rows = await asUser(app, ids.caesar, (tx) => tx`select id from households`);
     expect(rows.map((r) => r.id)).toEqual([ids.household]);
@@ -123,7 +132,7 @@ describe("Åtkomst till hushåll", () => {
   });
 });
 
-describe("Godkännanden", () => {
+describeDb("Godkännanden", () => {
   it("en part kan godkänna i eget namn", async () => {
     await asUser(
       app,
@@ -203,7 +212,7 @@ describe("Godkännanden", () => {
   });
 });
 
-describe("Oföränderliga poster", () => {
+describeDb("Oföränderliga poster", () => {
   it("en gällande version kan inte ändras, inte ens av ägaren", async () => {
     const [version] = await owner`
       insert into transaction_versions
@@ -296,7 +305,7 @@ describe("Oföränderliga poster", () => {
   });
 });
 
-describe("Aktivitetsloggen", () => {
+describeDb("Aktivitetsloggen", () => {
   it("kedjas ihop och kan verifieras", async () => {
     await asUser(
       app,
@@ -357,7 +366,7 @@ describe("Aktivitetsloggen", () => {
   });
 });
 
-describe("Sessioner och konton", () => {
+describeDb("Sessioner och konton", () => {
   it("en användare ser bara sina egna sessioner", async () => {
     await owner`insert into sessions (token_hash, user_id, expires_at)
       values ('hash-caesar', ${ids.caesar}, now() + interval '30 days'),

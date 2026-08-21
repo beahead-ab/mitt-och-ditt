@@ -43,6 +43,32 @@ export async function asUser<T>(
   }) as Promise<T>;
 }
 
+/**
+ * Går det att nå en databas? Utan en sådan hoppas integrationstesterna över
+ * lokalt, men aldrig i CI: säkerhetstester som tyst försvinner är farligare än
+ * inga alls.
+ */
+export async function databaseAvailable(): Promise<boolean> {
+  const sql = connect("postgres", {});
+  try {
+    await sql`select 1`;
+    return true;
+  } catch {
+    if (process.env.CI) {
+      throw new Error(
+        "Ingen databas nåbar. Integrationstesterna för radnivåsäkerhet måste köras i CI.",
+      );
+    }
+    console.warn(
+      "\n  Hoppar över integrationstesterna: ingen Postgres nåbar." +
+        "\n  Starta en och sätt TEST_DATABASE_URL för att köra dem.\n",
+    );
+    return false;
+  } finally {
+    await sql.end({ timeout: 1 }).catch(() => {});
+  }
+}
+
 /** Sant om anropet avvisades av radnivåsäkerheten eller en spärr. */
 export async function isRejected(work: () => Promise<unknown>): Promise<boolean> {
   try {

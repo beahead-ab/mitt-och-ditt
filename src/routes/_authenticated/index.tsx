@@ -12,9 +12,11 @@ import {
   defaultEndpoint,
   disputedTransactions,
   missingReceipts,
+  needsQuarterlyReview,
   pendingTransactions,
   run,
 } from "@/lib/calculation";
+import { useAttachmentReferences } from "@/hooks/use-attachments";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtKr } from "@/lib/format";
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/")({
 function Overview() {
   const { household } = useHousehold();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
+  const withAttachment = useAttachmentReferences();
 
   const computed = useMemo(() => {
     if (!agreement) return null;
@@ -46,9 +49,10 @@ function Overview() {
 
   const { result, endpoint } = computed;
   const [a, b] = agreement.parties;
+  const review = needsQuarterlyReview(transactions, null);
   const pending = pendingTransactions(transactions);
   const disputed = disputedTransactions(transactions);
-  const missing = missingReceipts(agreement, transactions);
+  const missing = missingReceipts(agreement, transactions, withAttachment);
   const lastEvent = result.events[result.events.length - 1];
   const netEquity = endpoint.endValue - endpoint.endLoan;
   const claimsTotal = result.claims[a] + result.claims[b];
@@ -168,6 +172,17 @@ function Overview() {
           to="/transaktioner/historik"
         />
       </section>
+
+      {review.due && review.since && (
+        <section className="mb-6 rounded-md border border-hairline bg-secondary/60 p-4">
+          <p className="eyebrow">Dags för avstämning</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Ingenting har registrerats sedan {fmtDate(review.since)}. Enligt avtalet ska ni minst
+            varje kvartal kontrollera att betalningar, lånesaldon, skatteuppgifter och underlag är
+            registrerade.
+          </p>
+        </section>
+      )}
 
       {claimsTotal > 0 && (
         <section className="mb-6 rounded-md border border-[color:var(--data-gold)]/40 bg-[color:var(--data-gold)]/10 p-4">

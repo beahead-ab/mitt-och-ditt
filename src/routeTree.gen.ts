@@ -29,6 +29,8 @@ import { Route as AuthenticatedSystemInbjudningarRouteImport } from './routes/_a
 import { Route as AuthenticatedTransaktionerIndexRouteImport } from './routes/_authenticated/transaktioner.index'
 import { Route as AuthenticatedTransaktionerHistorikRouteImport } from './routes/_authenticated/transaktioner.historik'
 import { Route as AuthenticatedTransaktionerVantarRouteImport } from './routes/_authenticated/transaktioner.vantar'
+import { Route as ApiBilagaIndexRouteImport } from './routes/api/bilaga.index'
+import { Route as ApiBilagaIdRouteImport } from './routes/api/bilaga.$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -143,6 +145,16 @@ const AuthenticatedTransaktionerVantarRoute =
     path: '/transaktioner/vantar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiBilagaIndexRoute = ApiBilagaIndexRouteImport.update({
+  id: '/api/bilaga/',
+  path: '/api/bilaga/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBilagaIdRoute = ApiBilagaIdRouteImport.update({
+  id: '/api/bilaga/$id',
+  path: '/api/bilaga/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -160,10 +172,12 @@ export interface FileRoutesByFullPath {
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
+  '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/forsaljning/': typeof AuthenticatedForsaljningIndexRoute
   '/konto/': typeof AuthenticatedKontoIndexRoute
   '/overenskommelse/': typeof AuthenticatedOverenskommelseIndexRoute
   '/transaktioner/': typeof AuthenticatedTransaktionerIndexRoute
+  '/api/bilaga/': typeof ApiBilagaIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -181,10 +195,12 @@ export interface FileRoutesByTo {
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
+  '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/forsaljning': typeof AuthenticatedForsaljningIndexRoute
   '/konto': typeof AuthenticatedKontoIndexRoute
   '/overenskommelse': typeof AuthenticatedOverenskommelseIndexRoute
   '/transaktioner': typeof AuthenticatedTransaktionerIndexRoute
+  '/api/bilaga': typeof ApiBilagaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -204,10 +220,12 @@ export interface FileRoutesById {
   '/_authenticated/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/_authenticated/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/_authenticated/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
+  '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/_authenticated/forsaljning/': typeof AuthenticatedForsaljningIndexRoute
   '/_authenticated/konto/': typeof AuthenticatedKontoIndexRoute
   '/_authenticated/overenskommelse/': typeof AuthenticatedOverenskommelseIndexRoute
   '/_authenticated/transaktioner/': typeof AuthenticatedTransaktionerIndexRoute
+  '/api/bilaga/': typeof ApiBilagaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -227,10 +245,12 @@ export interface FileRouteTypes {
     | '/system/inbjudningar'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
+    | '/api/bilaga/$id'
     | '/forsaljning/'
     | '/konto/'
     | '/overenskommelse/'
     | '/transaktioner/'
+    | '/api/bilaga/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -248,10 +268,12 @@ export interface FileRouteTypes {
     | '/system/inbjudningar'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
+    | '/api/bilaga/$id'
     | '/forsaljning'
     | '/konto'
     | '/overenskommelse'
     | '/transaktioner'
+    | '/api/bilaga'
   id:
     | '__root__'
     | '/_authenticated'
@@ -270,16 +292,20 @@ export interface FileRouteTypes {
     | '/_authenticated/system/inbjudningar'
     | '/_authenticated/transaktioner/historik'
     | '/_authenticated/transaktioner/vantar'
+    | '/api/bilaga/$id'
     | '/_authenticated/forsaljning/'
     | '/_authenticated/konto/'
     | '/_authenticated/overenskommelse/'
     | '/_authenticated/transaktioner/'
+    | '/api/bilaga/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   InbjudanTokenRoute: typeof InbjudanTokenRoute
+  ApiBilagaIdRoute: typeof ApiBilagaIdRoute
+  ApiBilagaIndexRoute: typeof ApiBilagaIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -424,6 +450,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTransaktionerVantarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/bilaga/': {
+      id: '/api/bilaga/'
+      path: '/api/bilaga'
+      fullPath: '/api/bilaga/'
+      preLoaderRoute: typeof ApiBilagaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bilaga/$id': {
+      id: '/api/bilaga/$id'
+      path: '/api/bilaga/$id'
+      fullPath: '/api/bilaga/$id'
+      preLoaderRoute: typeof ApiBilagaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -482,6 +522,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   InbjudanTokenRoute: InbjudanTokenRoute,
+  ApiBilagaIdRoute: ApiBilagaIdRoute,
+  ApiBilagaIndexRoute: ApiBilagaIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,7 @@
 import {
   calculate,
   compareDates,
+  daysBetween,
   isOnOrBefore,
   ruleFor,
   toIsoDate,
@@ -95,16 +96,46 @@ export function disputedTransactions(transactions: Transaction[]): Transaction[]
   return transactions.filter((t) => t.status === "disputed");
 }
 
-/** Godkända poster utan underlag över beloppsgränsen (avtal 14.3). */
+/**
+ * Godkända poster över beloppsgränsen som saknar underlag (avtal 14.3).
+ * Kontrollen görs mot faktiska bilagor – en beskrivning är inget underlag.
+ */
 export const RECEIPT_THRESHOLD: Ore = 100_000; // 1 000 kr
 
 export function missingReceipts(
   agreement: AgreementParams,
   transactions: Transaction[],
+  referencesWithAttachment: ReadonlySet<string>,
 ): Transaction[] {
   const [a, b] = agreement.parties;
-  return transactions
+  return (
+    transactions
+      .filter((t) => t.status === "approved")
+      // En makuleringspost bär ingen egen ekonomi och behöver inget underlag.
+      .filter((t) => !t.voidsId)
+      .filter((t) => (t.payments[a]?.gross ?? 0) + (t.payments[b]?.gross ?? 0) >= RECEIPT_THRESHOLD)
+      .filter((t) => !referencesWithAttachment.has(t.id))
+  );
+}
+
+/**
+ * Parterna ska minst kvartalsvis kontrollera att betalningar, lånesaldon,
+ * skatteuppgifter och underlag är registrerade (avtal 14.4). Utan en
+ * registrerad avstämning räknas tiden från den senaste godkända posten.
+ */
+export const REVIEW_INTERVAL_DAYS = 92;
+
+export function needsQuarterlyReview(
+  transactions: Transaction[],
+  lastReviewedAt: IsoDate | null,
+  now: IsoDate = today(),
+): { due: boolean; since: IsoDate | null } {
+  const lastActivity = transactions
     .filter((t) => t.status === "approved")
-    .filter((t) => !t.description)
-    .filter((t) => (t.payments[a]?.gross ?? 0) + (t.payments[b]?.gross ?? 0) >= RECEIPT_THRESHOLD);
+    .map((t) => t.paymentDate)
+    .sort(compareDates)
+    .pop();
+  const since = lastReviewedAt ?? lastActivity ?? null;
+  if (!since) return { due: false, since: null };
+  return { due: daysBetween(since, now) >= REVIEW_INTERVAL_DAYS, since };
 }

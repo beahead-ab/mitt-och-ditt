@@ -33,6 +33,10 @@ npm run dev
 | `npm run build` | Bygger till `.output` (Nitro node-server) |
 | `npm run db:migrate` | Kör migreringarna |
 | `npm run db:seed` | Skapar hushållet och skriver ut inbjudningslänkar |
+
+Integrationstesterna för radnivåsäkerhet kräver en Postgres. Saknas den hoppas
+de över lokalt, men aldrig i CI – säkerhetstester som tyst försvinner är
+farligare än inga alls.
 | `npm run preview` | Kör den byggda servern |
 
 ## Beräkningsmotorn
@@ -112,6 +116,21 @@ gränssnittet utan visas med sitt skäl, så att det syns *varför* något inte 
 
 Samma regel gäller avtalsversioner och ändrade kostnadsslag: båda parter måste
 godkänna innan de börjar gälla.
+
+## Underlag
+
+Kvitton och bankunderlag laddas upp som bild eller PDF. Filerna ligger utanför
+webbroten och nås bara genom en behörighetskontrollerad nedladdning – en gissad
+adress ger 404, oavsett om bilagan finns. Varje fil hashas med sha256 vid
+uppladdningen.
+
+En bilaga raderas inte utan **maskeras**: filen tas bort, men raden ligger kvar
+med hash, storlek, uppladdare och tidpunkt. Aktivitetsloggens kedja förblir
+obruten och det syns att något har tagits bort. Det är så rätten till radering
+går att förena med ett oföränderligt underlag.
+
+Översikten räknar saknade underlag mot faktiska bilagor. En beskrivning är inget
+underlag.
 
 ## Ingenting raderas
 

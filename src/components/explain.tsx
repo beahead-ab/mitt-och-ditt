@@ -1,5 +1,5 @@
 import { HelpCircle } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { EXAMPLES, type ExampleKey } from "@/lib/examples";
 
 /**
  * "Vad betyder detta?" – varje modellbegrepp ska kunna öppnas och förklaras
@@ -18,12 +19,15 @@ export function Explain({
   term,
   summary,
   example,
+  worked,
   reference,
   children,
 }: {
   term: string;
   summary: string;
   example?: ReactNode;
+  /** Räkneexempel ur avtalets bilaga 1, framräknat av beräkningsmotorn. */
+  worked?: ExampleKey;
   reference?: string;
   children?: ReactNode;
 }) {
@@ -42,16 +46,46 @@ export function Explain({
             {summary}
           </DialogDescription>
         </DialogHeader>
-        {example && (
-          <div className="rounded-md border border-hairline bg-secondary/60 p-3 text-sm leading-relaxed">
-            <p className="eyebrow mb-1.5">Exempel</p>
-            {example}
-          </div>
+        {worked ? (
+          <WorkedExampleBlock name={worked} />
+        ) : (
+          example && (
+            <div className="rounded-md border border-hairline bg-secondary/60 p-3 text-sm leading-relaxed">
+              <p className="eyebrow mb-1.5">Exempel</p>
+              {example}
+            </div>
+          )
         )}
         {children}
         {reference && <p className="text-xs text-muted-foreground">{reference}</p>}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Räkneexemplet körs genom samma beräkningsmotor som parternas riktiga
+ * avräkning. Ändras en regel ändras exemplet med den – de kan aldrig glida
+ * isär.
+ */
+function WorkedExampleBlock({ name }: { name: ExampleKey }) {
+  const example = useMemo(() => EXAMPLES[name](), [name]);
+  return (
+    <div className="rounded-md border border-hairline bg-secondary/60 p-3">
+      <p className="eyebrow mb-1.5">Räkneexempel</p>
+      <p className="text-sm leading-relaxed">{example.outcome}</p>
+      <dl className="mt-2.5 grid gap-1 border-t border-hairline pt-2.5 text-sm">
+        {example.steps.map((step) => (
+          <div key={step.label} className="flex justify-between gap-3">
+            <dt className="text-muted-foreground">{step.label}</dt>
+            <dd className="tabular text-right">{step.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2.5 text-xs text-muted-foreground">
+        Framräknat av tjänstens beräkningsmotor med avtalets exempelsiffror.
+      </p>
+    </div>
   );
 }
 
@@ -63,6 +97,7 @@ export const TERMS = {
       "En intern räkneenhet som visar hur mycket av bostadens värde var och en av er har betalat för. Enheten är inte en juridisk andel av bostadsrätten.",
     example:
       "Ni startade med 1 380 000 enheter: en enhet per krona ni la in kontant. Betalar någon mer än sin del senare flyttas enheter från den andra parten.",
+    worked: "washingMachine" as const,
     reference: "Avtalet, punkt 6",
   },
   internAndel: {
@@ -75,39 +110,35 @@ export const TERMS = {
   nettokapital: {
     term: "Nettokapital",
     summary: "Bostadens beräknade värde minus det lån som är kvar på bostaden den dagen.",
-    example: "Värde 4 900 000 kr minus lån 3 000 000 kr ger 1 900 000 kr i nettokapital.",
+    worked: "linearValue" as const,
     reference: "Avtalet, punkt 9.1",
   },
   enhetsvarde: {
     term: "Värde per andelsenhet",
     summary:
       "Nettokapitalet delat med antalet enheter. Det visar vad en enhet är värd just den dagen, och avgör hur många enheter en överbetalning ger.",
-    example:
-      "1 380 000 kr i nettokapital delat på 1 380 000 enheter är 1,00 kr per enhet. Överbetalar du 8 000 kr får du 8 000 enheter.",
+    worked: "washingMachine" as const,
     reference: "Avtalet, punkt 9.3",
   },
   linjartVarde: {
     term: "Beräknat värde",
     summary:
       "Värdet mellan köp och försäljning räknas som en rak linje mellan startvärdet och slutvärdet. Det är en överenskommen räknemetod, inte en värdering av bostaden.",
-    example:
-      "Köp för 4 500 000 kr och försäljning fem år senare för 5 500 000 kr ger cirka 4 900 000 kr efter två år.",
+    worked: "linearValue" as const,
     reference: "Avtalet, punkt 8.2 och 8.4",
   },
   overbetalning: {
     term: "Överbetalning",
     summary:
       "Det belopp du betalat utöver din del av en kostnad, efter avdrag för rabatt, återbetalning, försäkringsersättning och skatteeffekt som du fått.",
-    example:
-      "Kostnaden är 10 000 kr och din del är 20 %, alltså 2 000 kr. Betalar du allt har du överbetalat 8 000 kr.",
+    worked: "interest" as const,
     reference: "Avtalet, punkt 7.5–7.6",
   },
   personligFordran: {
     term: "Personlig fordran",
     summary:
       "En överbetalning som inte kunde omvandlas till enheter – till exempel när nettokapitalet var noll eller den andra parten inte hade enheter kvar. Den regleras i kronor, utan värdeuppräkning.",
-    example:
-      "Kan bara 180 000 kr av en överbetalning på 1 000 000 kr omvandlas blir resterande 820 000 kr en fordran.",
+    worked: "personalClaim" as const,
     reference: "Avtalet, punkt 9.4, 10.4 och 14.5",
   },
   kostnadsnyckel: {
@@ -129,8 +160,7 @@ export const TERMS = {
     term: "Prognos",
     summary:
       "Så länge bostaden inte är såld är slutvärdet ett antagande. Eftersom enhetsvärdet beror på antagandet ändras även tidigare enhetsöverföringar när ni byter antagande.",
-    example:
-      "Antar ni ett högre slutvärde blir varje enhet dyrare, och samma överbetalning ger färre enheter.",
+    worked: "valueChange" as const,
     reference: "Avtalet, punkt 6.4 och 25.3",
   },
 } as const;

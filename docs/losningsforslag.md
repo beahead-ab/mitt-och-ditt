@@ -195,9 +195,9 @@ Uppdragsbeskrivningen säger "inte i flera tabeller". Jag föreslår **noll tabe
 
 Utköpsflödet implementerar värderingsregeln mekaniskt (två värderingar → 10 %-regeln → ev. tredje → median) och visar beräkningen öppet. Men **kapitalvinstskatt beräknas inte av appen** — den visas som separata, manuellt ifyllda upplysningsfält per part i slutavräkningen, med avtalets brasklapp (15.6). Att bygga skattelogik vore både fel scope och en falsk trygghet.
 
-### 3.8 Pedagogiska exempel drivs av riktiga motorn
+### 3.8 Pedagogiska exempel drivs av riktiga motorn — byggt
 
-Bilaga 1-exemplen läggs in som **körbara fixturer genom samma beräkningsmotor** och renderas i "Vad betyder detta?"-dialoger. Då kan exemplen aldrig glida isär från verklig beräkning, och "Caesar överbetalar"-exemplet är bokstavligen samma fixture med parterna spegelvända — vilket dessutom är ett permanent symmetritest i UI:t.
+Bilaga 1-exemplen är **körbara fixturer genom samma beräkningsmotor** och renderas i "Vad betyder detta?"-dialogerna. De kan därför aldrig glida isär från verklig beräkning: ändras en regel ändras exemplet med den, eller så går testerna sönder. Exemplen är dessutom partsneutrala – de använder anonyma parter, så modellens symmetri syns direkt.
 
 ### 3.9 Skjuts medvetet till v2
 
@@ -348,7 +348,7 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 | **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. Bilaga 1 exempel 1–10 gröna, plus egenskaper och kantfall. |
 | **2. Backend-grund** ✅ | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed. | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren. |
 | **3. Överenskommelse + Transaktioner** ✅ | Registrering, godkännande, invändning, återkallande, korrigering och makulering. | Klart. Hela kedjan verifierad i webbläsaren med två inloggade parter; bilagor återstår. |
-| **4. Översikt + Simulator** | Motorn kopplas till UI; prognosläge, scenarier, diagram, "Vad betyder detta?". | Översikten visar korrekt läge för seedade data; simulatorn matchar arkets exempel. |
+| **4. Översikt + Simulator** ✅ | Motorn kopplad till UI, bilagor, pedagogiska exempel, kvartalsavstämning. | Klart. Exemplen körs genom motorn och testas mot bilaga 1; bilagor verifierade inklusive åtkomstspärr. |
 | **5. Import/export** | V8-importflödet med rapport; exporterna i 5.7. | Riktiga arket importeras med korrekt förhandsgranskning och ±1 kr-avstämning. |
 | **6. Försäljning & utköp** | Processer, värderingar, slutavräkning med låsning och protokoll. | En komplett simulerad exit går att genomföra och verifiera om. |
 | **7. Finish** | Systemadmin, kvartalsavstämning, tomma tillstånd, mobilpolish, pedagogiska exempel överallt. | Genomgång mot uppdragsbeskrivningens alla skall-krav. |
@@ -368,8 +368,8 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 - Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
 - `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
 
-**Återstår enligt byggordningen:** etapp 4 (översikt och simulator mot skarp data samt pedagogiska exempel), därefter etapp 5–7. Bilagor och underlag hör till etapp 3 men är ännu inte byggda.
+**Återstår enligt byggordningen:** etapp 5 (import av V8-arket och exporter), därefter etapp 6–7 (försäljning och utköp, samt systemadmin och finish). Sparade simulatorscenarier är ännu inte byggda.
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0–3 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, samt hela godkännandeflödet för poster och avtal. Nästa steg är etapp 4 – simulatorn och de pedagogiska exemplen mot skarp data, samt bilagor på posterna.*
+*Etapp 0–4 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, samt bilagor och motordrivna räkneexempel. Nästa steg är etapp 5 – kontrollerad import av V8-arket och exporterna.*

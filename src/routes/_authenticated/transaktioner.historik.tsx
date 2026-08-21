@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/app-shell";
 import { DataGrid } from "@/components/data-grid";
 import { Explain, TERMS } from "@/components/explain";
+import { Attachments } from "@/components/attachments";
 import { TransactionActions } from "@/components/transaction-actions";
 import { TransactionView } from "@/components/transaction-view";
 import { useHousehold } from "@/components/household-context";
@@ -181,7 +182,10 @@ function HistoryFor({
               Stäng
             </button>
           </div>
-          <div className="mt-3">
+          <div className="mt-4 border-t border-hairline pt-4">
+            <Attachments householdId={household.id} reference={selectedTransaction.id} />
+          </div>
+          <div className="mt-4 border-t border-hairline pt-4">
             <TransactionActions
               householdId={household.id}
               transaction={selectedTransaction}
