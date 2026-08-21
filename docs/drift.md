@@ -148,15 +148,30 @@ cat > .env <<ENV
 POSTGRES_PASSWORD=$(openssl rand -base64 32)
 APP_DOMAIN=mittochditt.goodstuff.se
 APP_URL=https://mittochditt.goodstuff.se
+SEED_ADMIN_EMAIL=din@adress.se
+SEED_CAESAR_EMAIL=caesars@adress.se
+SEED_FELICIA_EMAIL=felicias@adress.se
 ENV
 chmod 600 .env
 ```
+
+Sätt de tre e-postadresserna till riktiga innan seed körs. De blir kontonas
+identitet, och adressen är det man loggar in med. Att byta dem efteråt går, men
+är onödigt pillande.
 
 `APP_URL` används både i inbjudningslänkarna och i csrf-kontrollen. Bakom
 proxyn ser appen sin interna adress, så utan den skulle kontrollen jämföra mot
 fel värde.
 
 ### 5.5 Starta
+
+Bygget är det enda som tar i på en 2 GB-maskin. Har den ingen växlingsfil, lägg
+in en först – annars kan bygget dödas av minnesbrist mitt i:
+
+```sh
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
 
 ```sh
 docker compose --profile tls up -d --build
@@ -230,12 +245,20 @@ Inget i koden känner till vilken leverantör den körs hos.
 
 ## 7. Hemligheter
 
-`POSTGRES_PASSWORD` och `SESSION_SECRET` sätts i `.env` på servern och checkas
-aldrig in. `.env` är med i både `.gitignore` och `.dockerignore`. Databasporten
-exponeras inte utåt – nå den via `docker compose exec db psql -U mittochditt`.
+`POSTGRES_PASSWORD` sätts i `.env` på servern och checkas aldrig in. `.env` är
+med i både `.gitignore` och `.dockerignore`. Databasporten exponeras inte utåt –
+nå den via `docker compose exec db psql -U mittochditt`.
+
+Någon signeringsnyckel för sessioner behövs inte. Sessionstoken slumpas per
+inloggning och lagras bara som hash i databasen, så det finns ingen hemlighet
+att läcka och inget att rotera. Samma sak gäller inbjudningslänkarna.
 
 ## 8. Vad som återstår
 
-Etapp 3 bygger gränssnittet för att registrera, godkända och korrigera poster.
-Fram till dess kan underlaget läsas i appen men bara skrivas genom seed-skriptet
-och migreringarna.
+Hela byggordningen är genomförd: registrering, godkännanden, korrigeringar och
+makuleringar, bilagor, exporter, försäljning och utköp samt administration.
+
+Medvetet uppskjutet till en senare version, enligt lösningsförslaget: flödet vid
+dödsfall och arv, notifieringar och e-post, en komplett revisionszip,
+kompensation för nyttjande efter processdagen, dröjsmålsränta på regresskrav och
+sparade scenarier i simulatorn.
