@@ -22,6 +22,11 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app
+# Katalogen för bilagor måste finnas i imagen och ägas av app. En namngiven
+# volym som monteras på en sökväg som saknas i imagen skapas av Docker med
+# root som ägare, och då kan appen - som inte kör som root - inte skriva dit.
+# Finns katalogen däremot här, ärver volymen dess ägare vid första starten.
+RUN mkdir -p /data/uploads && chown -R app:app /data
 COPY --from=build --chown=app:app /app/.output ./.output
 # Migreringarna läses från disk vid körning och måste följa med imagen.
 COPY --from=build --chown=app:app /app/db/migrations ./db/migrations

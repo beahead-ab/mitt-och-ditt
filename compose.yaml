@@ -10,7 +10,12 @@ services:
     image: mitt-och-ditt:latest
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-3000}:3000"
+      # Bara loopback. Caddy når appen inifrån compose-nätverket och behöver
+      # ingen publicerad port. Publicerade portar i Docker går förbi ufw -
+      # Docker skriver egna iptables-regler som utvärderas först - så en
+      # bindning till 0.0.0.0 hade lagt ut appen okrypterad på internet trots
+      # brandväggen.
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
