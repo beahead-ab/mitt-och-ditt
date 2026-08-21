@@ -17,10 +17,23 @@ services:
       # brandväggen.
       - "127.0.0.1:${APP_PORT:-3000}:3000"
     environment:
-      NODE_ENV: production
-      DATABASE_URL: postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
-      APP_URL: ${APP_URL:-https://mittochditt.goodstuff.se}
-      UPLOADS_DIR: /data/uploads
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
+      - APP_URL=${APP_URL:-https://mittochditt.goodstuff.se}
+      - UPLOADS_DIR=/data/uploads
+      # Seed-skriptet körs inne i containern och läser sina värden ur miljön.
+      # .env styr bara substitution i den här filen; variablerna följer inte
+      # med in i containern av sig själva utan måste namnges här.
+      #
+      # Skrivna som enbart namn, utan värde. Då lämnas variabeln osatt i
+      # containern när den saknas i .env, och skriptets egen standard gäller.
+      # Med ${SEED_ADMIN_EMAIL:-} hade den i stället blivit tom sträng, vilket
+      # skriptet uppfattar som ett satt värde - och seedat en tom adress.
+      - SEED_ADMIN_EMAIL
+      - SEED_CAESAR_EMAIL
+      - SEED_FELICIA_EMAIL
+      - SEED_ADDRESS
+      - SEED_START_DATE
     volumes:
       # Bilagor ligger utanför containern så att de överlever en omstart.
       - uploads:/data/uploads

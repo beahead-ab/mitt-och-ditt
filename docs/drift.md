@@ -247,6 +247,19 @@ docker compose ps
 
 ### 5.6 Sätt upp hushållet
 
+Seed läser `SEED_`-värdena ur containerns miljö, och den sätts när containern
+skapas - inte när `.env` ändras. Har du redigerat `.env` efter att appen
+startade måste containern återskapas först, annars kör seed med de gamla
+värdena:
+
+```sh
+docker compose --profile tls up -d
+docker compose exec app env | grep SEED_
+```
+
+Utskriften ska visa dina adresser. Syns ingenting kör inte seed - då når
+värdena inte in, och skriptet skulle tyst falla tillbaka på exempeladresserna.
+
 ```sh
 docker compose exec app node .output/scripts/seed.mjs
 ```
@@ -259,8 +272,10 @@ Administratörskontot skapas utan lösenord, eftersom det inte kommer till genom
 en inbjudan. Sätt det:
 
 ```sh
-docker compose exec -it app node .output/scripts/set-password.mjs admin@example.se
+docker compose exec -it app node .output/scripts/set-password.mjs din@adress.se
 ```
+
+Adressen är den du satte som `SEED_ADMIN_EMAIL`.
 
 ### 5.7 Innan Caesar och Felicia godkänner avtalet
 
