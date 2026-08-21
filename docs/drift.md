@@ -282,7 +282,22 @@ utan att ta tjänsten med sig. Kör inte om bygget i samma kommando som starten 
 `up -d --build` river den gamla containern, så ett bygge som dödas av
 minnesbrist lämnar tjänsten nere i stället för att lämna den orörd.
 
-**Steg 1 – hämta koden och bygg. Tjänsten fortsätter köra på den gamla imagen.**
+**Steg 1 – ta en kopia innan något rörs.**
+
+```sh
+/srv/mitt-och-ditt/deploy/backup.sh
+```
+
+Migreringarna är framåtriktade och har ingen väg tillbaka: det finns inget
+kommando som ångrar en genomförd migrering. Går uppdateringen fel är kopian
+skillnaden mellan en halvtimmes återställning och ett förlorat underlag. Den tar
+några sekunder för två användare, och avbryter av sig själv om någon av filerna
+blev tom.
+
+Att koden går att rulla tillbaka med `git checkout` hjälper inte här - schemat
+följer inte med bakåt.
+
+**Steg 2 – hämta koden och bygg. Tjänsten fortsätter köra på den gamla imagen.**
 
 ```sh
 cd /srv/mitt-och-ditt && git pull
@@ -292,7 +307,7 @@ docker compose build
 Går bygget inte igenom står den gamla versionen kvar och svarar som förut.
 Rätta felet och bygg om; ingenting är sönder under tiden.
 
-**Steg 2 – kör migreringarna, fortfarande på den gamla koden.**
+**Steg 3 – kör migreringarna, fortfarande på den gamla koden.**
 
 ```sh
 docker compose run --rm app node .output/scripts/migrate.mjs
@@ -308,7 +323,7 @@ nya koden möter det gamla schemat.
 
 Migreringarna körs i filnamnsordning, exakt en gång var.
 
-**Steg 3 – byt in den nya versionen och kontrollera.**
+**Steg 4 – byt in den nya versionen och kontrollera.**
 
 ```sh
 docker compose --profile tls up -d
@@ -316,7 +331,7 @@ docker compose ps
 curl -sI https://mittochditt.goodstuff.se/auth | head -1
 ```
 
-Inget `--build` här – imagen är redan byggd i steg 1. Certifikatet ligger kvar
+Inget `--build` här – imagen är redan byggd i steg 2. Certifikatet ligger kvar
 i `caddy_data` och hämtas inte om.
 
 ### 5.9 Säkerhetskopiering
