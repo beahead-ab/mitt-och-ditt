@@ -1,6 +1,6 @@
 # Mitt & Ditt — lösningsförslag och feedback på scopet
 
-**Status:** beslutsunderlag innan bygget startar · **Datum:** 2026-08-21 · **Underlag:** uppdragsbeskrivningen, Samboavtal/delägaravtal V8 (punkt 1–28 + bilaga 1–4), Avräkningsmodell V8 (alla tre flikar inkl. de dolda beräkningskolumnerna O–AS), Bilkollens kodbas.
+**Status:** beslutat och påbörjat – etapp 0 och 1 levererade · **Datum:** 2026-08-21 · **Underlag:** uppdragsbeskrivningen, Samboavtal/delägaravtal V8 (punkt 1–28 + bilaga 1–4), Avräkningsmodell V8 (alla tre flikar inkl. de dolda beräkningskolumnerna O–AS), Bilkollens kodbas.
 
 Det här dokumentet beskriver lösningen som jag tycker att den ska byggas. Där jag avviker från eller kompletterar uppdragsbeskrivningen säger jag det uttryckligen och motiverar varför. Sist finns byggordning och de få frågor som behöver svar — med rekommenderade default-svar så att bygget inte blockeras.
 
@@ -17,6 +17,49 @@ Mina viktigaste synpunkter i korthet:
 3. **Andelarna är preliminära i prognosläge — och det måste synas.** Eftersom värdet per andelsenhet beror på antaget slutvärde ändras även *historiska* enhetsöverföringar när antagandet ändras (avtal 6.4). Översikten får aldrig presentera andelarna som fastställda. (Avsnitt 2.4.)
 4. **Vissa delar bör medvetet skjutas till v2**: dödsfallsflödet, notiser/e-post, native-app, komplett revisionsexport. (Avsnitt 3.9.)
 5. **En infrastrukturfråga behöver svar före backend-bygget**: Lovable Cloud som Bilkollen, eller fristående Supabase. Motorn och UI:t byggs identiskt oavsett. (Avsnitt 7, fråga 1.)
+
+---
+
+## 1b. Fattade beslut
+
+Alla frågor i avsnitt 7 är besvarade. Det här gäller nu:
+
+| Fråga | Beslut |
+|---|---|
+| Infrastruktur | **Ingen Lovable- eller Supabase-koppling.** Container-paketerad app + Postgres, körs på en DigitalOcean-droplet. Se avsnitt 5.0. |
+| Korrigeringar | Ersättningssemantik (3.2). |
+| Registratorns godkännande | Sker i registreringsflödet (3.3). |
+| Prognosens standardantagande | "Avräkning idag med oförändrat värde" (2.4). |
+| 50/50-liggaren | Med i v1 (3.1). |
+| Konfigurerbarhet | Parametrar ja, struktur nej. Se avsnitt 1c. |
+
+## 1c. Hur konfigurerbara avtalets regler ska vara
+
+Kortfattat: **avtalets parametrar ska vara konfigurerbara, dess struktur ska inte vara det.** Gränsen är inte teknisk utan följer av avtalets punkt 25.1.
+
+**Konfigurerbart i tjänsten** – detta bor i databasen per hushåll och avtalsversion, och paret kan ändra det själva:
+
+- startdag, startvärde, kapitalinsatser, startenheter och totalt antal andelsenheter,
+- kostnadsslagens klassificering (ingår / ingår inte), med giltighetsdatum och bådas godkännande,
+- fördelningen för kostnadsslag utanför enhetsmodellen (50/50 eller annat),
+- vilka kostnadsslag som minskar låneskulden,
+- särskild kostnadsnyckel per enskild transaktion,
+- formella ägarandelar,
+- fristerna i separationsprocessen och tioprocentsregeln vid värdering (som `ExitPolicy`).
+
+**Inte konfigurerbart** – detta är avtalets konstruktion, och punkt 25.1 kräver separat undertecknat tilläggsavtal för att ändra det:
+
+- den linjära värdeformeln,
+- att en överbetalning omvandlas till andelsenheter till dagens enhetsvärde,
+- att transaktioner behandlas kronologiskt och nettas per betalningsdag,
+- att kostnadsnyckeln är andelarna omedelbart före transaktionen,
+- spärrarna vid negativt nettokapital och otillräckliga enheter,
+- att samma belopp aldrig blir både enheter och fordran,
+- slutavräkningsregeln och tremånadersregeln.
+
+Skulle tjänsten låta någon ändra detta med ett reglage vore appen inte längre ett bevisverktyg för avtalet – den skulle tyst kunna räkna på något annat än det parterna undertecknat. **Vägen att ändra dem finns**, men den går genom tilläggsavtalsflödet: ett undertecknat dokument laddas upp, båda bekräftar, och först då låses motsvarande fält upp. Det är en avsiktlig spärr, inte en begränsning i koden.
+
+Motorn är därför byggd parameterdriven men strukturfast: `AgreementParams`, `CostCategoryRule[]` och `ExitPolicy` är indata, medan beräkningsgången ligger i koden och skyddas av testsviten.
 
 ---
 
@@ -156,9 +199,33 @@ Dessa ska in i bygget (eller åtminstone i backloggen) även om prompten inte n�
 
 ## 5. Lösningen
 
-### 5.1 Stack och repo: spegla Bilkollen
+### 5.0 Infrastruktur: fristående och flyttbar
 
-Nytt fristående repo (`beahead-ab/mitt-och-ditt`, redan skapat). Samma stack som Bilkollen — TanStack Start + React 19, TanStack Router/Query, Tailwind v4 med Bilkollens tokenfil som bas, Radix/shadcn-komponenter, Supabase (auth, Postgres med RLS, privat storage), Zod, Vitest, Recharts, jspdf för PDF. Bilkollen röres inte. Kodmönster som återanvänds rakt av: serverfunktioner med auth-middleware, `PageHeader`/`EmptyState`/`SectionTabs`/app-shell-strukturen, avtalsdokument med md5-checksumma + acceptanstabell, adminbehörighetsmönstret.
+Ingen koppling till Lovable eller Supabase. Tjänsten är container-paketerad och kan flyttas mellan leverantörer genom att kopiera en fil, en databasdump och en katalog.
+
+**Vald lösning:** en DigitalOcean-droplet (2 GB, ca 12 USD/mån) som kör `docker compose` med två tjänster – appen och Postgres – plus en valfri Caddy-container som sköter domän och certifikat automatiskt. Totalkostnad cirka 12–18 USD i månaden.
+
+| Alternativ | Kostnad/mån | Flyttbart | Bedömning |
+|---|---|---|---|
+| **Droplet + Docker Compose** | ca 12 USD | Helt | **Valt.** Billigast, inga bindningar. |
+| App Platform + Managed Postgres | ca 25–30 USD | Delvis | Mindre drift, dubbla kostnaden, leverantörsbunden databas. |
+| Supabase | 0–25 USD | Nej | Uteslutet enligt beslutet ovan. |
+
+Fullständig driftbeskrivning finns i `docs/drift.md`.
+
+### 5.1 Stack
+
+| Lager | Val | Varför |
+|---|---|---|
+| Ramverk | TanStack Start (React 19) | Samma som Bilkollen, så designsystem och kodmönster delas mellan systerprodukterna. Bygger till en vanlig Node-server utan serverless-bindning. |
+| Server | Nitro, preset `node-server` | Ett enda `node .output/server/index.mjs` i containern. |
+| Stil | Tailwind v4 med Bilkollens tokenfil | Identiskt visuellt uttryck. |
+| Databas | Postgres 17 i container | Standard-SQL, flyttas med `pg_dump`. Radnivåsäkerhet drivs av sessionsvariabel per förfrågan. |
+| Inloggning | Egen sessionshantering, endast inbjudna | Inget tredjepartsberoende för något så centralt. |
+| Bilagor | Privat volym, aldrig publikt exponerad | Kan bytas mot S3-kompatibel lagring utan kodändring. |
+| Tester | Vitest | Motorn är ren och testas utan webbläsare eller databas. |
+
+Bilkollen röres inte. Kodmönster som återanvänds: app-skalet med `PageHeader`/`EmptyState`/`SectionTabs`, avtalsdokument med checksumma och acceptanstabell, samt sektionsstrukturen.
 
 ### 5.2 Informationsarkitektur
 
@@ -240,8 +307,8 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 
 | Etapp | Innehåll | Klart när |
 |---|---|---|
-| **0. Grund** | Beslut om infrastruktur (fråga 1). Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, CI. | `npm run dev` visar app-skalet med Mitt & Ditt-toppfält. |
-| **1. Motorn** | `src/lib/engine/` + golden tests + egenskapstester. Byggs helt utan backend. | Alla bilaga 1-exempel gröna; symmetri/ordningsoberoende/konservering gröna. |
+| **0. Grund** ✅ | Infrastrukturbeslut. Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, Docker, CI. | Klart. Bygget, containern och alla sju sektioner är på plats. |
+| **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. 65 tester gröna, inklusive bilaga 1 exempel 1–10. |
 | **2. Backend-grund** | Supabase-schema + RLS + auth + invites + seed (Caesar/Felicia, grundklassificeringar, startvärden som utkast). | RLS-tester gröna; två testkonton ser bara sitt hushåll. |
 | **3. Överenskommelse + Transaktioner** | Sektionerna med registrering, godkännande/invändning, korrigeringar, bilagor, klassificeringar. | En post kan registreras, godkännas av båda och synas i historiken med full logg. |
 | **4. Översikt + Simulator** | Motorn kopplas till UI; prognosläge, scenarier, diagram, "Vad betyder detta?". | Översikten visar korrekt läge för seedade data; simulatorn matchar arkets exempel. |
@@ -251,17 +318,21 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 
 ---
 
-## 7. Frågor före bygget — med rekommenderade svar
+## 7. Frågorna – besvarade
 
-Bygget kan starta på etapp 0–1 oavsett; frågorna behöver svar före etapp 2 respektive nämnd etapp.
+Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvarade och besluten är införda ovan (avsnitt 1b). Den enda som återstår att bestämma är **domännamnet** – förslagsvis `mittochditt.goodstuff.se`. Det påverkar bara Caddy-konfigurationen och kan sättas när tjänsten ska upp.
 
-1. **Infrastruktur:** Lovable Cloud (som Bilkollen — men då skapas projektet normalt från Lovable, vilket kan kräva att koden flyttas in där) eller fristående Supabase-projekt + valfri hosting (repot förblir källan)? *Rekommendation: fristående Supabase — repot är redan skapat utanför Lovable, stacken är identisk ändå, och inget i lösningen kräver Lovable-tjänsterna.*
-2. **Domän/namn:** appnamnet är Mitt & Ditt — ska tjänsten ligga på t.ex. `mittochditt.goodstuff.se`? *(Påverkar bara auth-konfiguration; kan avgöras senare.)*
-3. **Korrigeringssemantik:** ersättningspost enligt 3.2? *Rekommendation: ja.*
-4. **Registratorns godkännande** i registreringsflödet enligt 3.3? *Rekommendation: ja.*
-5. **Prognosens standardantagande:** "avräkning idag till startvärdet" enligt 2.4? *Rekommendation: ja, med sparade scenarier som valbar standard.*
-6. **50/50-liggaren** i v1 enligt 3.1? *Rekommendation: ja — utan den saknar BRF-avgift och försäkring hemvist i appen.*
+## 8. Vad som är levererat och vad som återstår
 
----
+**Levererat:**
 
-*Nästa steg när du gett klartecken: etapp 0 och 1 — scaffold plus beräkningsmotorn med hela testsviten — levereras som första PR i det här repot.*
+- Beräkningsmotorn i `src/lib/engine/`: ren, deterministisk, versionsstämplad, med 65 tester.
+- Gränssnittet med Bilkollens designsystem och alla sju huvudval. Översikt och simulator drivs av motorn på riktigt; övriga sektioner har sin struktur och sitt innehåll där det inte kräver databas.
+- Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
+- `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
+
+**Återstår enligt byggordningen:** etapp 2 (Postgres-schema med radnivåsäkerhet, inbjudningar, inloggning), därefter etapp 3–7.
+
+**Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
+
+*Etapp 0 och 1 är levererade: fristående scaffold utan Lovable, beräkningsmotorn med 65 gröna tester, container-paketering och driftdokumentation. Nästa steg är etapp 2 – Postgres-schemat med radnivåsäkerhet, inbjudningar och inloggning.*
