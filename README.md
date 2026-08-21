@@ -70,6 +70,21 @@ andelsenheter, den kronologiska nettningen och spärrarna. Avtalets punkt 25.1
 kräver undertecknat tilläggsavtal för att ändra dem, så de får inte vara en
 inställning i tjänsten. Se `docs/losningsforslag.md`.
 
+## Listor som kalkylark
+
+Poster visas i ett rutnät med kalkylarkskänsla, eftersom underlaget i dag är ett
+Google-ark och den vanan är värd att behålla. Rutnätet har fast huvudrad,
+radnummer och fryst ID-kolumn, och navigeras med tangentbordet: pilar flyttar
+markören, Skift utökar urvalet, Tabb radbryter, Home och End går till radens
+kanter och Ctrl lägger till hopp till rutnätets hörn. Ctrl+C kopierar urvalet
+som tabbseparerad text, som klistras in direkt i Excel eller Google Sheets.
+
+Vyn är läsande. Ekonomiska poster ändras aldrig genom att skriva i en cell, utan
+genom en korrigeringspost som båda parter godkänner.
+
+På telefon visas samma uppgifter som kort i stället – en bred matris går inte att
+läsa på en liten skärm.
+
 ## Drift
 
 Se [`docs/drift.md`](docs/drift.md) för containerbygge, DigitalOcean och
