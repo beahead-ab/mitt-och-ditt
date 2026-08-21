@@ -309,7 +309,9 @@ Uppdragsbeskrivningens 26 tabeller är i allt väsentligt rätt. Jag föreslår 
 
 Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrivet:
 
-- Invite-only: konton skapas endast via inbjudan. Ingen öppen registrering finns i något flöde.
+- Invite-only: konton skapas endast via inbjudan. Ingen öppen registrering finns i något flöde. Inbjudningslänken visas en enda gång; bara hashen sparas.
+- **Administratören hanterar åtkomst, inte innehåll.** Hen kan bjuda in, stänga av konton och sätta upp hushåll, men kommer aldrig åt transaktioner, avtal, bilagor, slutavräkningar eller aktivitetslogg. Gränsen ligger i policyerna och är testad åt båda håll.
+- Ingen kan ge sig själv administratörsbehörighet. Den spärren behövdes: självuppdateringspolicyn hade annars gjort det möjligt, vilket ett test fångade.
 - Radnivåsäkerhet på varje tabell, byggd på `is_household_member()`. Applikationen använder en egen databasroll och sätter den inloggades identitet per transaktion; utan den ser rollen ingenting alls.
 - Godkännanderegeln tvingas i databasen: en godkännanderad måste bära den inloggades eget ID **och** den partsroll hen faktiskt har i hushållet. Båda vägarna att godkänna åt någon annan är stängda och testade.
 - En gällande version kan inte ändras eller raderas av någon roll, inte ens ägaren. Ett avgivet godkännande kan inte tas tillbaka i efterhand.
@@ -351,7 +353,7 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 | **4. Översikt + Simulator** ✅ | Motorn kopplad till UI, bilagor, pedagogiska exempel, kvartalsavstämning. | Klart. Exemplen körs genom motorn och testas mot bilaga 1; bilagor verifierade inklusive åtkomstspärr. |
 | **5. Export** ✅ | Exporterna i 5.7. Importen av V8-arket ströks – arket är demodata. | Klart. Sex exporter verifierade i webbläsaren, inklusive att PDF:en kodar svenska tecken rätt. |
 | **6. Försäljning & utköp** ✅ | Processer, värderingar, slutavräkning med låsning och protokoll. | Klart. En komplett exit genomförd i webbläsaren: processdag, övertagande, tre värderingar, fryst avräkning, omverifiering och låsning. |
-| **7. Finish** | Systemadmin, kvartalsavstämning, tomma tillstånd, mobilpolish, pedagogiska exempel överallt. | Genomgång mot uppdragsbeskrivningens alla skall-krav. |
+| **7. Finish** ✅ | Systemadmin, konto, tomma tillstånd, mobilkontroll. | Klart. Administratörsgränsen bevisad i databasen; inbjudan, avstängning och lösenordsbyte verifierade i webbläsaren. |
 
 ---
 
@@ -368,8 +370,8 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 - Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
 - `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
 
-**Återstår enligt byggordningen:** etapp 7 (systemadmin, tomma tillstånd och mobilpolish). Sparade simulatorscenarier och dödsfallsflödet ligger kvar som medvetet uppskjutna.
+**Byggordningen är genomförd.** Kvar är det som medvetet sköts till v2 (avsnitt 3.9): dödsfallsflödet, notiser och e-post, native-app, komplett revisionszip, nyttjandeersättning och regressränta. Därtill sparade simulatorscenarier.
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0–6 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, bilagor, motordrivna räkneexempel, exporterna samt försäljning och utköp med fryst och omverifierbar slutavräkning. Nästa steg är etapp 7 – systemadmin och finish.*
+*Etapp 0–7 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, bilagor, motordrivna räkneexempel, exporterna försäljning och utköp med fryst och omverifierbar slutavräkning, samt administration med en bevisad gräns mellan åtkomst och innehåll. Byggordningen är därmed genomförd, och det som återstår är de delar som från början sköts till v2.*

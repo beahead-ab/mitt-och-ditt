@@ -146,6 +146,20 @@ nya värden, en makulering ersätter den med ingenting. Båda kräver båda part
 godkännande och lämnar originalet orört och länkat. Kravet kommer från avtalets
 punkt 14.3.
 
+## Administration
+
+Administratören hanterar **åtkomst, inte innehåll**. Hen kan bjuda in, återkalla
+inbjudningar, stänga av konton och sätta upp hushåll med bostadsuppgifter — men
+kommer aldrig åt parternas transaktioner, avtal, bilagor, slutavräkningar eller
+aktivitetslogg. Gränsen ligger i databasens policyer, inte i gränssnittet, och
+den är testad åt båda håll.
+
+En inbjudningslänk visas en enda gång: bara dess hash sparas, så den går inte
+att hämta fram i efterhand. Att stänga av ett konto avslutar också dess
+pågående sessioner, medan personens registrerade poster ligger kvar oförändrade.
+
+Byte av lösenord kräver det nuvarande och loggar ut alla andra enheter.
+
 ## Säkerhet
 
 Tjänsten är endast för inbjudna – det finns ingen öppen registrering. Lösenord
@@ -162,7 +176,10 @@ ser rollen ingenting. Spärrarna ligger alltså i databasen, inte i gränssnitte
   ägaren,
 - ett avgivet godkännande kan inte tas tillbaka i efterhand,
 - aktivitetsloggen kan bara läggas till i, och varje rad hashar föregående rad så
-  att en ändring i efterhand bryter kedjan och går att upptäcka.
+  att en ändring i efterhand bryter kedjan och går att upptäcka,
+- ingen kan ge sig själv administratörsbehörighet eller öppna sitt eget
+  avstängda konto,
+- en godkänd slutavräkning är låst för alla roller, inklusive ägaren.
 
 Personnummer lagras inte någonstans. De finns i det undertecknade avtalet och
 behövs inte för någon funktion här.
