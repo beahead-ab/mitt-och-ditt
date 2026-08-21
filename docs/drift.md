@@ -60,9 +60,13 @@ npm run build
 ## 3b. Databasen
 
 ```sh
-npm run db:migrate   # kör migreringarna i db/migrations
-npm run db:seed      # skapar hushållet och skriver ut inbjudningslänkar
+npm run db:migrate         # kör migreringarna i db/migrations
+npm run db:seed            # skapar hushållet och skriver ut inbjudningslänkar
+npm run admin:losenord -- admin@example.se   # sätter lösenord för ett konto
 ```
+
+Skripten byggs också till `.output/scripts/*.mjs`, utan beroenden, så att de
+kan köras i containern där varken källkod eller `node_modules` finns.
 
 Migreringarna körs i filnamnsordning, exakt en gång var, och varje fil i sin egen
 transaktion. Ett par användare behöver ingen migreringsmotor.
@@ -96,44 +100,122 @@ docker compose up -d --build
 Appen lyssnar på port 3000 i containern. `VITE_DEMO` måste sättas **vid bygget**,
 eftersom `VITE_`-variabler bakas in i klientbunten.
 
-## 5. Sätta upp på DigitalOcean
+## 5. Sätta upp tjänsten på mittochditt.goodstuff.se
 
-1. Skapa en droplet: Ubuntu 24.04 LTS, Basic Regular 2 GB, Frankfurt. Lägg in din
-   SSH-nyckel. Slå på automatiska säkerhetsuppdateringar.
-2. Installera Docker:
-   ```sh
-   curl -fsSL https://get.docker.com | sh
-   ```
-3. Peka domänen (till exempel `mittochditt.goodstuff.se`) mot dropletens IP med
-   en A-post.
-4. Hämta koden och starta:
-   ```sh
-   git clone https://github.com/beahead-ab/mitt-och-ditt /srv/mitt-och-ditt
-   cd /srv/mitt-och-ditt
-   cat > .env <<'ENV'
-   POSTGRES_PASSWORD=...
-   SESSION_SECRET=...
-   APP_DOMAIN=mittochditt.goodstuff.se
-   ENV
-   docker compose --profile tls up -d --build
-   ```
-   Caddy hämtar certifikatet automatiskt. Efter någon minut svarar tjänsten på
-   HTTPS.
-5. Stäng brandväggen om allt annat:
-   ```sh
-   ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
-   ```
-6. Lägg in nattlig säkerhetskopiering:
-   ```sh
-   crontab -e
-   # 0 3 * * * /srv/mitt-och-ditt/deploy/backup.sh >> /var/log/mittochditt-backup.log 2>&1
-   ```
+Tjänsten körs på **https://mittochditt.goodstuff.se**. Stegen nedan är hela
+uppsättningen från tom maskin till fungerande inloggning.
 
-Uppdatera senare med:
+### 5.1 Maskinen
+
+En droplet räcker: Ubuntu 24.04 LTS, Basic Regular **2 GB / 1 vCPU**, region
+Frankfurt eller Amsterdam. Lägg in din SSH-nyckel vid skapandet och slå på
+automatiska säkerhetsuppdateringar.
 
 ```sh
-cd /srv/mitt-och-ditt && git pull && docker compose up -d --build
+ssh root@<ip>
+curl -fsSL https://get.docker.com | sh
 ```
+
+### 5.2 Domänen
+
+Peka `mittochditt.goodstuff.se` mot dropletens IP med en **A-post**. Kontrollera
+att den slagit igenom innan Caddy startas, annars misslyckas certifikatet:
+
+```sh
+dig +short mittochditt.goodstuff.se
+```
+
+Svaret ska vara dropletens IP. Certifikatet hämtas över port 80, så den måste
+vara öppen utåt.
+
+### 5.3 Brandvägg
+
+```sh
+ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
+```
+
+Databasen exponeras aldrig utåt – den nås bara inifrån compose-nätverket.
+
+### 5.4 Hämta koden och sätt hemligheterna
+
+```sh
+git clone https://github.com/beahead-ab/mitt-och-ditt /srv/mitt-och-ditt
+cd /srv/mitt-och-ditt
+
+cat > .env <<ENV
+POSTGRES_PASSWORD=$(openssl rand -base64 32)
+APP_DOMAIN=mittochditt.goodstuff.se
+APP_URL=https://mittochditt.goodstuff.se
+ENV
+chmod 600 .env
+```
+
+`APP_URL` används både i inbjudningslänkarna och i csrf-kontrollen. Bakom
+proxyn ser appen sin interna adress, så utan den skulle kontrollen jämföra mot
+fel värde.
+
+### 5.5 Starta
+
+```sh
+docker compose --profile tls up -d --build
+```
+
+Caddy hämtar certifikatet automatiskt. Efter någon minut svarar tjänsten på
+https. Kontrollera:
+
+```sh
+curl -sI https://mittochditt.goodstuff.se/auth | head -1
+docker compose ps
+```
+
+### 5.6 Sätt upp hushållet
+
+```sh
+docker compose exec app node .output/scripts/seed.mjs
+```
+
+Seed skapar hushållet, avtalsversionen som **utkast** med startvärdena ur
+avtalets punkt 2, grundklassificeringen ur punkt 7, och skriver ut en
+inbjudningslänk per part. Länkarna visas en enda gång och gäller i sju dagar.
+
+Administratörskontot skapas utan lösenord, eftersom det inte kommer till genom
+en inbjudan. Sätt det:
+
+```sh
+docker compose exec -it app node .output/scripts/set-password.mjs admin@example.se
+```
+
+### 5.7 Innan Caesar och Felicia godkänner avtalet
+
+Avtalets `[●]`-fält måste fyllas i med verkliga siffror. Kontrollera särskilt:
+
+- **startdagen** – tillträdesdagen för det gemensamma förvärvet,
+- **startvärdet** – den faktiska köpeskillingen,
+- **kapitalinsatserna** – styrkta belopp, inte planerade,
+- **bostadens adress** – sätts under Systemadmin → Hushåll.
+
+Startenheterna följer av kapitalinsatserna: en enhet per krona. Avtalsversionen
+börjar gälla först när båda parter godkänt den, och först då räknar tjänsten
+något.
+
+### 5.8 Uppdatera senare
+
+```sh
+cd /srv/mitt-och-ditt && git pull && docker compose --profile tls up -d --build
+docker compose exec app node .output/scripts/migrate.mjs
+```
+
+Migreringarna körs i filnamnsordning, exakt en gång var.
+
+### 5.9 Säkerhetskopiering
+
+```sh
+crontab -e
+# 0 3 * * * /srv/mitt-och-ditt/deploy/backup.sh >> /var/log/mittochditt-backup.log 2>&1
+```
+
+Skriptet dumpar databasen och packar bilagorna, och rensar kopior äldre än
+30 dagar. Testa en återställning innan ni börjar registrera på riktigt.
 
 ## 6. Flytta tjänsten någon annanstans
 

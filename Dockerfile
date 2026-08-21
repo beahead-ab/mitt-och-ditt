@@ -18,6 +18,8 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/.output ./.output
+# Migreringarna läses från disk vid körning och måste följa med imagen.
+COPY --from=build --chown=app:app /app/db/migrations ./db/migrations
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

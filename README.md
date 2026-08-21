@@ -33,6 +33,7 @@ npm run dev
 | `npm run build` | Bygger till `.output` (Nitro node-server) |
 | `npm run db:migrate` | Kör migreringarna |
 | `npm run db:seed` | Skapar hushållet och skriver ut inbjudningslänkar |
+| `npm run admin:losenord -- <e-post>` | Sätter lösenord för ett konto |
 
 Integrationstesterna för radnivåsäkerhet kräver en Postgres. Saknas den hoppas
 de över lokalt, men aldrig i CI – säkerhetstester som tyst försvinner är
@@ -232,8 +233,10 @@ vore värre än inget.
 
 ## Drift
 
-Se [`docs/drift.md`](docs/drift.md) för containerbygge, DigitalOcean och
-säkerhetskopiering.
+Tjänsten körs på **https://mittochditt.goodstuff.se**.
+
+Se [`docs/drift.md`](docs/drift.md) för hela uppsättningen: droplet, domän,
+certifikat, hemligheter, seed och säkerhetskopiering.
 
 ## Design
 

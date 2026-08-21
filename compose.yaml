@@ -14,7 +14,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
-      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-https://mittochditt.goodstuff.se}
       UPLOADS_DIR: /data/uploads
     volumes:
       # Bilagor ligger utanför containern så att de överlever en omstart.
@@ -49,7 +49,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?sätt APP_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN:-mittochditt.goodstuff.se}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

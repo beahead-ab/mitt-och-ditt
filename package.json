@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && npm run build:scripts",
     "preview": "node .output/server/index.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "admin:losenord": "tsx scripts/set-password.ts",
+    "build:scripts": "esbuild scripts/seed.ts scripts/migrate.ts scripts/set-password.ts --bundle --platform=node --target=node22 --format=esm --outdir=.output/scripts --out-extension:.js=.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
