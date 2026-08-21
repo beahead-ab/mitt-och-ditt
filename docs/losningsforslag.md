@@ -347,7 +347,7 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 | **0. Grund** ✅ | Infrastrukturbeslut. Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, Docker, CI. | Klart. Bygget, containern och alla sju sektioner är på plats. |
 | **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. Bilaga 1 exempel 1–10 gröna, plus egenskaper och kantfall. |
 | **2. Backend-grund** ✅ | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed. | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren. |
-| **3. Överenskommelse + Transaktioner** | Sektionerna med registrering, godkännande/invändning, korrigeringar, bilagor, klassificeringar. | En post kan registreras, godkännas av båda och synas i historiken med full logg. |
+| **3. Överenskommelse + Transaktioner** ✅ | Registrering, godkännande, invändning, återkallande, korrigering och makulering. | Klart. Hela kedjan verifierad i webbläsaren med två inloggade parter; bilagor återstår. |
 | **4. Översikt + Simulator** | Motorn kopplas till UI; prognosläge, scenarier, diagram, "Vad betyder detta?". | Översikten visar korrekt läge för seedade data; simulatorn matchar arkets exempel. |
 | **5. Import/export** | V8-importflödet med rapport; exporterna i 5.7. | Riktiga arket importeras med korrekt förhandsgranskning och ±1 kr-avstämning. |
 | **6. Försäljning & utköp** | Processer, värderingar, slutavräkning med låsning och protokoll. | En komplett simulerad exit går att genomföra och verifiera om. |
@@ -368,8 +368,8 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 - Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
 - `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
 
-**Återstår enligt byggordningen:** etapp 3 (registrering, godkännande och korrigering i gränssnittet), därefter etapp 4–7.
+**Återstår enligt byggordningen:** etapp 4 (översikt och simulator mot skarp data samt pedagogiska exempel), därefter etapp 5–7. Bilagor och underlag hör till etapp 3 men är ännu inte byggda.
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0–2 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, samt Postgres med radnivåsäkerhet, inbjudningar och inloggning. Nästa steg är etapp 3 – att registrera, godkänna och korrigera poster i gränssnittet.*
+*Etapp 0–3 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, samt hela godkännandeflödet för poster och avtal. Nästa steg är etapp 4 – simulatorn och de pedagogiska exemplen mot skarp data, samt bilagor på posterna.*

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { Badge } from "@/components/ui/badge";
+import { AgreementApproval } from "@/components/agreement-approval";
 import { NoAgreement } from "@/components/no-agreement";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
@@ -33,7 +34,10 @@ function Current() {
     return (
       <>
         <PageHeader eyebrow="Överenskommelse" title="Gällande överenskommelse" />
-        <NoAgreement loading={isLoading} />
+        <AgreementApproval />
+        <div className="mt-4">
+          <NoAgreement loading={isLoading} />
+        </div>
       </>
     );
   }

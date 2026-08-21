@@ -92,6 +92,27 @@ beräkningen som de såg ut då.
 På telefon visas samma uppgifter som kort i stället – en bred matris går inte att
 läsa på en liten skärm.
 
+## Godkännandeflödet
+
+Den som registrerar en post bekräftar den i samma steg – det är hens
+godkännande. Motparten godkänner eller invänder separat. Först när båda har
+godkänt påverkar posten andelarna.
+
+| Läge | Vad som gäller |
+|---|---|
+| Utkast | Bara registratorn ser posten. Kan ändras, skickas in eller raderas. |
+| Väntar | Motparten godkänner eller invänder. Registratorn kan dra tillbaka. |
+| Tvistig | En invändning tar posten ur beräkningen tills den lösts med en korrigering. |
+| Godkänd | Posten räknas. Den kan bara korrigeras eller makuleras, aldrig ändras. |
+
+Övergången till "gäller" sker i databasen och drivs av godkännanderaderna.
+Klienten kan alltså inte sätta en post i kraft genom att skriva rätt fält – den
+kan bara avge sitt eget godkännande. Otillgängliga åtgärder döljs inte i
+gränssnittet utan visas med sitt skäl, så att det syns *varför* något inte går.
+
+Samma regel gäller avtalsversioner och ändrade kostnadsslag: båda parter måste
+godkänna innan de börjar gälla.
+
 ## Ingenting raderas
 
 | Läge | Vad som händer |

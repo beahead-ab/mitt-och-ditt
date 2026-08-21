@@ -70,7 +70,9 @@ async function main() {
     const versions = await tx<{ id: string }[]>`
       select id from agreement_versions where agreement_id = ${agreementId}`;
     if (versions.length === 0) {
-      // Utkast: startvärdena ur avtalet, som paret får granska och godkänna.
+      // Startvärdena är [●]-fält i avtalet och måste fyllas i med verkliga
+      // siffror, så versionen läggs som utkast och båda parter får granska
+      // och godkänna den innan något beräknas.
       // Formella ägarandelar lämnas tomma och sätts aldrig automatiskt lika
       // med de interna andelarna.
       await tx`
@@ -89,13 +91,19 @@ async function main() {
     const rules = await tx<{ id: string }[]>`
       select id from cost_category_rules where household_id = ${householdId} limit 1`;
     if (rules.length === 0) {
+      // Grundklassificeringen står i det undertecknade avtalets punkt 7 och
+      // gäller därmed direkt. Den behöver inget godkännande i tjänsten –
+      // parterna har redan skrivit under den. Senare ändringar av ett
+      // kostnadsslag kräver däremot bådas godkännande enligt punkt 25.2.
       for (const rule of defaultCategoryRules(START_DATE)) {
         await tx`
           insert into cost_category_rules (
-            household_id, category, effective_from, included, reduces_loan, created_by, reason
+            household_id, category, effective_from, included, reduces_loan,
+            created_by, reason, effective_at
           ) values (
             ${householdId}, ${rule.category}, ${rule.effectiveFrom}, ${rule.included},
-            ${rule.reducesLoan ?? false}, ${admin.id}, 'Grundklassificering ur avtalets punkt 7'
+            ${rule.reducesLoan ?? false}, ${admin.id},
+            'Grundklassificering ur avtalets punkt 7', now()
           )
         `;
       }
