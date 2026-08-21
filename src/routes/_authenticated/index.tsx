@@ -4,7 +4,9 @@ import { useMemo } from "react";
 
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
+import { ExportMenu } from "@/components/export-menu";
 import { useHousehold } from "@/components/household-context";
+import { useExports } from "@/hooks/use-exports";
 import { NoAgreement } from "@/components/no-agreement";
 import { StatusCard } from "@/components/status-card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +33,7 @@ function Overview() {
   const { household } = useHousehold();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
   const withAttachment = useAttachmentReferences();
+  const { summaryExports } = useExports(agreement);
 
   const computed = useMemo(() => {
     if (!agreement) return null;
@@ -68,9 +71,14 @@ function Overview() {
             : "Slutavräkning med fastställda uppgifter."
         }
         action={
-          <Badge variant={endpoint.mode === "prognos" ? "secondary" : "default"}>
-            {endpoint.mode === "prognos" ? "Prognos" : "Slutavräkning"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={endpoint.mode === "prognos" ? "secondary" : "default"}>
+              {endpoint.mode === "prognos" ? "Prognos" : "Slutavräkning"}
+            </Badge>
+            <ExportMenu
+              groups={[{ title: "Läget nu", choices: summaryExports(result, endpoint) }]}
+            />
+          </div>
         }
         info={<Explain {...TERMS.prognos} />}
       />

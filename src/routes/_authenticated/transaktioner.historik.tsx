@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/app-shell";
 import { DataGrid } from "@/components/data-grid";
 import { Explain, TERMS } from "@/components/explain";
 import { Attachments } from "@/components/attachments";
+import { ExportMenu } from "@/components/export-menu";
+import { useExports } from "@/hooks/use-exports";
 import { TransactionActions } from "@/components/transaction-actions";
 import { TransactionView } from "@/components/transaction-view";
 import { useHousehold } from "@/components/household-context";
@@ -74,6 +76,7 @@ function HistoryFor({
   const { household } = useHousehold();
   const myPartyId = useMyParty();
   const navigate = useNavigate();
+  const { transactionExports } = useExports(agreement);
 
   // Poster som redan är ersatta eller makulerade av en godkänd post.
   const supersededReferences = useMemo(
@@ -115,6 +118,11 @@ function HistoryFor({
         eyebrow="Transaktioner"
         title="Historik"
         description="Godkända poster raderas aldrig. Fel rättas med en korrigering, och en post som inte hör hit makuleras."
+        action={
+          <ExportMenu
+            groups={[{ title: "Underlag", choices: transactionExports(shown, rules, result) }]}
+          />
+        }
       />
 
       {points.length > 0 && (

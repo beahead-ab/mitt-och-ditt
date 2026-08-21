@@ -324,11 +324,11 @@ Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrive
 2. **Den digitala gällande överenskommelsen** (`agreement_versions`): parametrarna + genererat dokument, aktiveras med bådas acceptans (Bilkollens aktiverings-/acceptansflöde återanvänds). Startvärden för Caesar och Felicia läggs in som redigerbara utkastvärden enligt uppdragsbeskrivningen (4 495 000 / 1 200 000 / 180 000 / 3 115 000 / 1 380 000; andelar 86,9565 % / 13,0435 %). Formella ägarandelar är egna fält, förifylls inte.
 3. **Kostnadsklassificeringarna** (`cost_category_rules`): får ändras löpande i appen med bådas godkännande och giltighetsdatum (25.2) — grundklassificeringen från avsnitt 6 i uppdragsbeskrivningen seedas med startdagen som giltighetsdatum. Nya/oklara kostnadsslag hamnar automatiskt utanför modellen tills båda godkänt klassificeringen.
 
-### 5.7 Import och export
+### 5.7 Export (importen struken)
 
-**Import** (V8-arket, uppladdad `.xlsx`/`.csv`): läser Transaktioner-flikens kolumner A–N exakt (samma rubriker), validerar (obligatoriska kolumner, datumordning, belopp, kända kostnadsslag), kontrollerar dubbletter (ID samt datum+belopp+typ), förhandsgranskar allt, sparar inget före uttryckligt godkännande, importerar **alla** rader som utkast (EX-prefixade exempelrader märks särskilt), skapar en importrapport — inklusive jämförelse av arkets startuppgifter mot appens gällande överenskommelse (avvikelser flaggas, skrivs aldrig över tyst) och motorns beräkning mot arkets slutsiffror (±1 kr-toleransen från 2.2). Därefter godkänner båda parter posterna i vanliga flödet innan de påverkar något.
+**Importen av V8-arket är struken** efter avstämning: arket innehåller demodata, inte verkliga poster. Skulle det senare visa sig finnas verkliga förvärvskostnader i det får de registreras för hand i vanliga flödet.
 
-**Export i v1:** transaktionshistorik (CSV/XLSX), aktuell sammanställning (PDF), slutavräkningsprotokoll enligt bilaga 3 (PDF + Markdown), avtal/tillägg (Markdown + PDF, jspdf-mönstret från Bilkollen). Komplett revisionszip i v1.1 (3.9).
+**Byggt:** transaktionshistorik och dagsberäkning (CSV för svenska Excel), sammanställning och överenskommelse (PDF och Markdown ur samma källa), samt revisionsunderlag (CSV) som bara exporteras om hashkedjan är obruten. Slutavräkningsprotokollet enligt bilaga 3 hör till etapp 6, eftersom det kräver slutavräkningen.
 
 ### 5.8 Försäljning & utköp
 
@@ -349,7 +349,7 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 | **2. Backend-grund** ✅ | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed. | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren. |
 | **3. Överenskommelse + Transaktioner** ✅ | Registrering, godkännande, invändning, återkallande, korrigering och makulering. | Klart. Hela kedjan verifierad i webbläsaren med två inloggade parter; bilagor återstår. |
 | **4. Översikt + Simulator** ✅ | Motorn kopplad till UI, bilagor, pedagogiska exempel, kvartalsavstämning. | Klart. Exemplen körs genom motorn och testas mot bilaga 1; bilagor verifierade inklusive åtkomstspärr. |
-| **5. Import/export** | V8-importflödet med rapport; exporterna i 5.7. | Riktiga arket importeras med korrekt förhandsgranskning och ±1 kr-avstämning. |
+| **5. Export** ✅ | Exporterna i 5.7. Importen av V8-arket ströks – arket är demodata. | Klart. Sex exporter verifierade i webbläsaren, inklusive att PDF:en kodar svenska tecken rätt. |
 | **6. Försäljning & utköp** | Processer, värderingar, slutavräkning med låsning och protokoll. | En komplett simulerad exit går att genomföra och verifiera om. |
 | **7. Finish** | Systemadmin, kvartalsavstämning, tomma tillstånd, mobilpolish, pedagogiska exempel överallt. | Genomgång mot uppdragsbeskrivningens alla skall-krav. |
 
@@ -368,8 +368,8 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 - Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
 - `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
 
-**Återstår enligt byggordningen:** etapp 5 (import av V8-arket och exporter), därefter etapp 6–7 (försäljning och utköp, samt systemadmin och finish). Sparade simulatorscenarier är ännu inte byggda.
+**Återstår enligt byggordningen:** etapp 6 (försäljning och utköp med värderingsregeln och slutavräkningsprotokollet) och etapp 7 (systemadmin och finish). Sparade simulatorscenarier är ännu inte byggda.
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0–4 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, samt bilagor och motordrivna räkneexempel. Nästa steg är etapp 5 – kontrollerad import av V8-arket och exporterna.*
+*Etapp 0–5 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, Postgres med radnivåsäkerhet, inbjudningar och inloggning, hela godkännandeflödet för poster och avtal, bilagor, motordrivna räkneexempel och exporterna. Nästa steg är etapp 6 – försäljning och utköp, med värderingsregeln och slutavräkningsprotokollet.*

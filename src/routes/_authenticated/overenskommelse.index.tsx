@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { Badge } from "@/components/ui/badge";
 import { AgreementApproval } from "@/components/agreement-approval";
+import { ExportMenu } from "@/components/export-menu";
+import { useExports } from "@/hooks/use-exports";
 import { NoAgreement } from "@/components/no-agreement";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
@@ -29,6 +31,7 @@ const LOCKED = [
 function Current() {
   const { agreement, isLoading } = useHouseholdData();
   const { household } = useHousehold();
+  const { agreementExports } = useExports(agreement);
 
   if (!agreement) {
     return (
@@ -50,8 +53,12 @@ function Current() {
       <PageHeader
         eyebrow="Överenskommelse"
         title="Gällande överenskommelse"
-        description="Utkast. Blir gällande när båda parter godkänt versionen."
-        action={<Badge variant="secondary">Utkast</Badge>}
+        description="Grunduppgifterna som beräkningen utgår från."
+        action={
+          <div className="flex items-center gap-2">
+            <ExportMenu groups={[{ title: "Dokument", choices: agreementExports() }]} />
+          </div>
+        }
       />
 
       <section className="tile-surface mb-4 p-5">

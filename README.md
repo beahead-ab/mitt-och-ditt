@@ -169,6 +169,26 @@ behövs inte för någon funktion här.
 
 Allt detta är testat mot en riktig Postgres, inte bara läst i SQL-filerna.
 
+## Exporter
+
+| Vad | Format | Var |
+|---|---|---|
+| Transaktionshistorik | CSV | Historik |
+| Dagsberäkning | CSV | Historik |
+| Sammanställning | PDF och Markdown | Översikt |
+| Överenskommelse | PDF och Markdown | Överenskommelse |
+| Revisionsunderlag | CSV | Systemadmin |
+
+CSV-filerna öppnas direkt i svenska Excel: semikolon som avgränsare,
+decimalkomma och byte order mark, så att å, ä och ö inte blir kråkfötter.
+
+PDF:erna genereras ur samma Markdown som textversionen, så pappersversionen och
+textversionen kan aldrig säga olika saker.
+
+Revisionsunderlaget exporteras bara om hashkedjan är obruten. Är den bruten
+avbryts exporten och raden pekas ut i stället – ett underlag med en bruten kedja
+vore värre än inget.
+
 ## Drift
 
 Se [`docs/drift.md`](docs/drift.md) för containerbygge, DigitalOcean och

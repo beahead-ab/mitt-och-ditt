@@ -26,6 +26,7 @@ import { Route as AuthenticatedOverenskommelseVersionerRouteImport } from './rou
 import { Route as AuthenticatedSystemAnvandareRouteImport } from './routes/_authenticated/system.anvandare'
 import { Route as AuthenticatedSystemHushallRouteImport } from './routes/_authenticated/system.hushall'
 import { Route as AuthenticatedSystemInbjudningarRouteImport } from './routes/_authenticated/system.inbjudningar'
+import { Route as AuthenticatedSystemRevisionRouteImport } from './routes/_authenticated/system.revision'
 import { Route as AuthenticatedTransaktionerIndexRouteImport } from './routes/_authenticated/transaktioner.index'
 import { Route as AuthenticatedTransaktionerHistorikRouteImport } from './routes/_authenticated/transaktioner.historik'
 import { Route as AuthenticatedTransaktionerVantarRouteImport } from './routes/_authenticated/transaktioner.vantar'
@@ -127,6 +128,12 @@ const AuthenticatedSystemInbjudningarRoute =
     path: '/system/inbjudningar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSystemRevisionRoute =
+  AuthenticatedSystemRevisionRouteImport.update({
+    id: '/system/revision',
+    path: '/system/revision',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTransaktionerIndexRoute =
   AuthenticatedTransaktionerIndexRouteImport.update({
     id: '/transaktioner/',
@@ -170,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
@@ -193,6 +201,7 @@ export interface FileRoutesByTo {
   '/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
@@ -218,6 +227,7 @@ export interface FileRoutesById {
   '/_authenticated/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/_authenticated/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/_authenticated/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/_authenticated/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/_authenticated/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/_authenticated/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/system/anvandare'
     | '/system/hushall'
     | '/system/inbjudningar'
+    | '/system/revision'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
     | '/api/bilaga/$id'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/system/anvandare'
     | '/system/hushall'
     | '/system/inbjudningar'
+    | '/system/revision'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
     | '/api/bilaga/$id'
@@ -290,6 +302,7 @@ export interface FileRouteTypes {
     | '/_authenticated/system/anvandare'
     | '/_authenticated/system/hushall'
     | '/_authenticated/system/inbjudningar'
+    | '/_authenticated/system/revision'
     | '/_authenticated/transaktioner/historik'
     | '/_authenticated/transaktioner/vantar'
     | '/api/bilaga/$id'
@@ -429,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemInbjudningarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/revision': {
+      id: '/_authenticated/system/revision'
+      path: '/system/revision'
+      fullPath: '/system/revision'
+      preLoaderRoute: typeof AuthenticatedSystemRevisionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/transaktioner/': {
       id: '/_authenticated/transaktioner/'
       path: '/transaktioner'
@@ -479,6 +499,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemAnvandareRoute: typeof AuthenticatedSystemAnvandareRoute
   AuthenticatedSystemHushallRoute: typeof AuthenticatedSystemHushallRoute
   AuthenticatedSystemInbjudningarRoute: typeof AuthenticatedSystemInbjudningarRoute
+  AuthenticatedSystemRevisionRoute: typeof AuthenticatedSystemRevisionRoute
   AuthenticatedTransaktionerHistorikRoute: typeof AuthenticatedTransaktionerHistorikRoute
   AuthenticatedTransaktionerVantarRoute: typeof AuthenticatedTransaktionerVantarRoute
   AuthenticatedForsaljningIndexRoute: typeof AuthenticatedForsaljningIndexRoute
@@ -505,6 +526,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemAnvandareRoute: AuthenticatedSystemAnvandareRoute,
   AuthenticatedSystemHushallRoute: AuthenticatedSystemHushallRoute,
   AuthenticatedSystemInbjudningarRoute: AuthenticatedSystemInbjudningarRoute,
+  AuthenticatedSystemRevisionRoute: AuthenticatedSystemRevisionRoute,
   AuthenticatedTransaktionerHistorikRoute:
     AuthenticatedTransaktionerHistorikRoute,
   AuthenticatedTransaktionerVantarRoute: AuthenticatedTransaktionerVantarRoute,

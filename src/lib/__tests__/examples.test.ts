@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { normalizeSpaces as normalize } from "@/lib/__tests__/normalize";
 import { EXAMPLES } from "@/lib/examples";
 
 /**
  * Exemplen ska stämma med avtalets bilaga 1. Går de isär har antingen en regel
  * ändrats eller exemplet blivit fel – båda är fel som ska fångas här.
  */
-/**
- * Intl grupperar tusental med fast smalt mellanslag, inte vanligt blanksteg.
- * Skillnaden syns inte men gör jämförelser opålitliga, så den normaliseras.
- */
-const normalize = (text: string) => text.replace(/\s/g, " ");
-
 const value = (example: { steps: { label: string; value: string }[] }, label: string) =>
   normalize(example.steps.find((step) => step.label === label)?.value ?? "");
 
