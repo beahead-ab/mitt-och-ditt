@@ -313,7 +313,9 @@ Uppdragsbeskrivningens 26 tabeller är i allt väsentligt rätt. Jag föreslår 
 Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrivet:
 
 - Invite-only: konton skapas endast via inbjudan. Ingen öppen registrering finns i något flöde. Inbjudningslänken visas en enda gång; bara hashen sparas.
-- **Administratören hanterar åtkomst, inte innehåll.** Hen kan bjuda in, stänga av konton och sätta upp hushåll, men kommer aldrig åt transaktioner, avtal, bilagor, slutavräkningar eller aktivitetslogg. Gränsen ligger i policyerna och är testad åt båda håll.
+- **Administratörsrollen ger åtkomst, inte innehåll.** Rollen kan bjuda in, stänga av konton och sätta upp hushåll, men öppnar ingen väg till transaktioner, avtal, bilagor, slutavräkningar eller aktivitetslogg. Gränsen ligger i policyerna och är testad åt båda håll.
+
+  Åtkomsten till innehåll följer medlemskapet i hushållet, inte rollen. Ett administratörskonto utan hushåll når därför ingenting. Samma konto kan däremot också vara part, och når då sitt eget hushålls innehåll i den egenskapen – aldrig som administratör. Det syns: medlemskapet står i avtalet, i användarlistan och i varje rad i aktivitetsloggen. Att en part också administrerar är alltså tillåtet och spårbart, men det bör vara känt för den andra parten.
 - Ingen kan ge sig själv administratörsbehörighet. Den spärren behövdes: självuppdateringspolicyn hade annars gjort det möjligt, vilket ett test fångade.
 - Radnivåsäkerhet på varje tabell, byggd på `is_household_member()`. Applikationen använder en egen databasroll och sätter den inloggades identitet per transaktion; utan den ser rollen ingenting alls.
 - Godkännanderegeln tvingas i databasen: en godkännanderad måste bära den inloggades eget ID **och** den partsroll hen faktiskt har i hushållet. Båda vägarna att godkänna åt någon annan är stängda och testade.
