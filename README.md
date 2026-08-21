@@ -169,6 +169,29 @@ behövs inte för någon funktion här.
 
 Allt detta är testat mot en riktig Postgres, inte bara läst i SQL-filerna.
 
+## Försäljning och utköp
+
+Processdagen startar avtalets frister: besked om övertagande inom 14 dagar,
+utköp genomfört eller bostaden utlagd inom tre månader. Tjänsten påminner men
+genomför aldrig något externt.
+
+Vid utköp fastställs slutvärdet av oberoende mäklarvärderingar. Skiljer sig de
+två värderingarna med högst tio procent av sitt genomsnitt gäller genomsnittet,
+annars tas en tredje in och medianen gäller. Beräkningen visas öppet.
+
+**Slutavräkningen fryses.** Den sparar både sina indata och sitt resultat, och
+kan när som helst räknas om ur exakt samma indata. Ger omräkningen något annat
+har underlaget eller beräkningsmotorn ändrats, och det syns. Checksumman räknas
+över kanoniskt serialiserade indata med sorterade nycklar, så att samma
+beräkning alltid ger samma summa.
+
+När båda parter godkänt låses avräkningen och kan inte ändras av någon roll,
+inte ens ägaren. Vill parterna räkna om gör de en ny avräkning.
+
+Slutberäkningsprotokollet enligt avtalets bilaga 3 exporteras som PDF eller
+Markdown, med uppgifterna beräkningen vilar på, kontrollerna och
+underskriftsrader.
+
 ## Exporter
 
 | Vad | Format | Var |
@@ -177,6 +200,7 @@ Allt detta är testat mot en riktig Postgres, inte bara läst i SQL-filerna.
 | Dagsberäkning | CSV | Historik |
 | Sammanställning | PDF och Markdown | Översikt |
 | Överenskommelse | PDF och Markdown | Överenskommelse |
+| Slutberäkningsprotokoll | PDF och Markdown | Slutavräkning |
 | Revisionsunderlag | CSV | Systemadmin |
 
 CSV-filerna öppnas direkt i svenska Excel: semikolon som avgränsare,

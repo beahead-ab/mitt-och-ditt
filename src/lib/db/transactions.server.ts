@@ -281,12 +281,17 @@ export async function voidTransaction(
   });
 }
 
-/** Godkänner en avtalsversion eller en kostnadsklassificering. */
+/**
+ * Godkänner en avtalsversion, en kostnadsklassificering eller en
+ * slutavräkning. Databasens trigger avgör när båda parter godkänt och sätter
+ * då posten i kraft; den här funktionen avger bara den inloggades eget
+ * godkännande.
+ */
 export async function approveDocument(
   userId: string,
   partyId: string,
   householdId: string,
-  entityType: "agreement_version" | "cost_category_rule",
+  entityType: "agreement_version" | "cost_category_rule" | "settlement",
   entityId: string,
 ): Promise<void> {
   return asUser(userId, async (sql) => {

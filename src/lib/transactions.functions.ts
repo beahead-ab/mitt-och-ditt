@@ -141,7 +141,7 @@ export const approveDocumentFn = createServerFn({ method: "POST" })
     z
       .object({
         householdId: z.string().uuid(),
-        entityType: z.enum(["agreement_version", "cost_category_rule"]),
+        entityType: z.enum(["agreement_version", "cost_category_rule", "settlement"]),
         entityId: z.string().uuid(),
       })
       .parse(input),
