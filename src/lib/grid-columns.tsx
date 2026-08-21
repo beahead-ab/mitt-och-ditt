@@ -16,6 +16,7 @@ import { PARTY_LABELS } from "@/lib/seed";
 const STATUS_LABEL: Record<Transaction["status"], string> = {
   draft: "Utkast",
   pending: "Väntar",
+  withdrawn: "Återkallad",
   approved: "Godkänd",
   disputed: "Tvistig",
 };
@@ -26,6 +27,7 @@ const STATUS_VARIANT: Record<
 > = {
   draft: "outline",
   pending: "secondary",
+  withdrawn: "outline",
   approved: "default",
   disputed: "destructive",
 };

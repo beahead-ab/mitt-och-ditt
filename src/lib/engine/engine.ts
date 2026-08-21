@@ -85,19 +85,35 @@ export function calculate(input: EngineInput): EngineResult {
     throw new Error("Slutdagen kan inte ligga före startdagen.");
   }
 
-  // 1. Korrigeringar ersätter sin ursprungspost när de är godkända
-  //    (ersättningssemantik). Ursprungsposten raderas aldrig, den utgår bara
-  //    ur beräkningen och behåller sin länk till korrigeringen.
+  // 1. Godkända poster raderas aldrig (avtal 14.3). De kan bara ersättas av en
+  //    korrigeringspost med nya värden, eller tas ur beräkningen av en
+  //    makuleringspost. Båda kräver att parterna godkänner den nya posten, och
+  //    ursprungsposten ligger kvar synlig med sin länk.
   const supersededIds = new Set(
     transactions
       .filter((t) => t.status === "approved" && t.correctsId)
       .map((t) => t.correctsId as string),
   );
+  const voidedIds = new Set(
+    transactions
+      .filter((t) => t.status === "approved" && t.voidsId)
+      .map((t) => t.voidsId as string),
+  );
 
   const usable: Transaction[] = [];
   for (const tx of transactions) {
     if (tx.status !== "approved") {
-      excluded.push({ transactionId: tx.id, reason: "Inte godkänd av båda parter" });
+      excluded.push({ transactionId: tx.id, reason: statusReason(tx.status) });
+      continue;
+    }
+    if (tx.voidsId) {
+      // Makuleringsposten bär ingen egen ekonomi och ska därför inte skapa
+      // någon dagsberäkning. Dess enda verkan är att ta bort sitt mål.
+      excluded.push({ transactionId: tx.id, reason: "Makuleringspost utan egen ekonomisk effekt" });
+      continue;
+    }
+    if (voidedIds.has(tx.id)) {
+      excluded.push({ transactionId: tx.id, reason: "Makulerad" });
       continue;
     }
     if (supersededIds.has(tx.id)) {
@@ -329,6 +345,19 @@ export function calculate(input: EngineInput): EngineResult {
     warnings,
     preliminaryTaxCount,
   };
+}
+
+function statusReason(status: Transaction["status"]): string {
+  switch (status) {
+    case "withdrawn":
+      return "Återkallad av registratorn";
+    case "disputed":
+      return "Tvistig – ligger utanför beräkningen tills den löses";
+    case "draft":
+      return "Utkast";
+    default:
+      return "Inte godkänd av båda parter";
+  }
 }
 
 /**

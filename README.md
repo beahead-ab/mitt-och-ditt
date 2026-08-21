@@ -82,8 +82,27 @@ som tabbseparerad text, som klistras in direkt i Excel eller Google Sheets.
 Vyn är läsande. Ekonomiska poster ändras aldrig genom att skriva i en cell, utan
 genom en korrigeringspost som båda parter godkänner.
 
+Celler som har ändrats får en hörnmarkör, och högerklick visar varje ändring med
+värdet före och efter, vem som gjorde den och när den började gälla. På
+historiksidan går det att välja en tidigare tidpunkt och se både posterna och
+beräkningen som de såg ut då.
+
 På telefon visas samma uppgifter som kort i stället – en bred matris går inte att
 läsa på en liten skärm.
+
+## Ingenting raderas
+
+| Läge | Vad som händer |
+|---|---|
+| Utkast, bara registratorn har sett det | Får raderas. Raderingen noteras i aktivitetsloggen. |
+| Väntar på godkännande | Kan återkallas. Posten ligger kvar, märkt som återkallad. |
+| Godkänd | Makuleras med en ny, länkad post som båda godkänner. Originalet ligger kvar synligt. |
+| Kostnadsklassificering | Upphävs från ett datum, aldrig retroaktivt. |
+
+Korrigering och makulering är samma mekanism: en korrigering ersätter posten med
+nya värden, en makulering ersätter den med ingenting. Båda kräver båda parters
+godkännande och lämnar originalet orört och länkat. Kravet kommer från avtalets
+punkt 14.3.
 
 ## Drift
 

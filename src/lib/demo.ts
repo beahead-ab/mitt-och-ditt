@@ -1,4 +1,5 @@
 import { addDays, kr, type AgreementParams, type Transaction } from "@/lib/engine";
+import type { RecordVersion } from "@/lib/revisions";
 import { CAESAR, FELICIA, SEED_AGREEMENT } from "@/lib/seed";
 
 /**
@@ -85,3 +86,89 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     status: "pending",
   },
 ];
+
+/**
+ * Versionshistorik för demoposterna. Motsvarar det databasen kommer att
+ * innehålla: varje ändring är en ny version av hela posten, godkänd av båda
+ * innan den börjar gälla. Cellernas historik härleds ur skillnaderna.
+ */
+function revision(
+  n: number,
+  values: Transaction,
+  authorId: string,
+  createdAt: string,
+  effectiveAt: string | null,
+  reason?: string,
+): RecordVersion<Transaction> {
+  return {
+    version: n,
+    values,
+    authorId,
+    createdAt,
+    approvedBy: { [CAESAR]: createdAt, [FELICIA]: effectiveAt },
+    effectiveAt,
+    reason,
+  };
+}
+
+const byId = new Map(DEMO_TRANSACTIONS.map((tx) => [tx.id, tx]));
+
+export const DEMO_REVISIONS = new Map<string, RecordVersion<Transaction>[]>([
+  [
+    "T-0001",
+    [
+      revision(
+        1,
+        { ...byId.get("T-0001")!, payments: { [FELICIA]: { gross: kr(11_900) } } },
+        FELICIA,
+        "2025-06-23T14:20:00Z",
+        "2025-06-24T08:05:00Z",
+      ),
+      revision(
+        2,
+        byId.get("T-0001")!,
+        FELICIA,
+        "2025-07-04T09:10:00Z",
+        "2025-07-05T17:40:00Z",
+        "Kvittot visade 12 400 kr inklusive frakt",
+      ),
+    ],
+  ],
+  [
+    "T-0002",
+    [revision(1, byId.get("T-0002")!, CAESAR, "2025-07-17T18:00:00Z", "2025-07-18T07:15:00Z")],
+  ],
+  [
+    "T-0003",
+    [revision(1, byId.get("T-0003")!, CAESAR, "2025-07-17T18:05:00Z", "2025-07-18T07:16:00Z")],
+  ],
+  [
+    "T-0004",
+    [
+      revision(
+        1,
+        {
+          ...byId.get("T-0004")!,
+          description: "Fuktskada i badrum",
+          payments: { [FELICIA]: { gross: kr(48_000) } },
+        },
+        FELICIA,
+        "2025-09-02T16:30:00Z",
+        "2025-09-03T12:00:00Z",
+      ),
+      revision(
+        2,
+        byId.get("T-0004")!,
+        FELICIA,
+        "2025-10-14T10:00:00Z",
+        "2025-10-15T09:20:00Z",
+        "Försäkringsersättningen på 20 000 kr betalades ut",
+      ),
+    ],
+  ],
+  [
+    "T-0005",
+    [revision(1, byId.get("T-0005")!, CAESAR, "2025-09-30T08:00:00Z", "2025-10-01T06:45:00Z")],
+  ],
+  ["T-0006", [revision(1, byId.get("T-0006")!, CAESAR, "2025-10-30T19:00:00Z", null)]],
+]);

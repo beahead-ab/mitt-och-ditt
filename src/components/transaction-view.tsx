@@ -1,7 +1,11 @@
+import { useCallback } from "react";
+
 import { DataGrid } from "@/components/data-grid";
 import { TransactionList } from "@/components/transaction-list";
-import { transactionColumns } from "@/lib/grid-columns";
 import type { AgreementParams, CostCategoryRule, Transaction } from "@/lib/engine";
+import { transactionColumns } from "@/lib/grid-columns";
+import { fieldHistory, type RecordVersion } from "@/lib/revisions";
+import { PARTY_LABELS } from "@/lib/seed";
 
 /**
  * Transaktionerna som matris på skärmar med plats, och som kortlista på
@@ -12,24 +16,42 @@ export function TransactionView({
   transactions,
   agreement,
   rules,
+  revisions,
   empty,
   onActivate,
 }: {
   transactions: Transaction[];
   agreement: AgreementParams;
   rules: CostCategoryRule[];
+  revisions?: Map<string, RecordVersion<Transaction>[]>;
   empty: string;
   onActivate?: (tx: Transaction) => void;
 }) {
+  const columns = transactionColumns(agreement, rules);
+
+  // Cellens historik härleds ur postens versioner med samma formatering som
+  // rutnätet visar, så historiken kan aldrig säga emot det synliga värdet.
+  const cellHistory = useCallback(
+    (tx: Transaction, columnKey: string) => {
+      const versions = revisions?.get(tx.id);
+      const column = columns.find((c) => c.key === columnKey);
+      if (!versions || !column) return [];
+      return fieldHistory(versions, (values) => column.text(values));
+    },
+    [revisions, columns],
+  );
+
   return (
     <>
       <div className="hidden md:block">
         <DataGrid
           caption="Transaktioner"
-          columns={transactionColumns(agreement, rules)}
+          columns={columns}
           rows={transactions}
           rowKey={(tx) => tx.id}
           onActivate={onActivate}
+          cellHistory={revisions ? cellHistory : undefined}
+          personName={(id) => PARTY_LABELS[id] ?? id}
           rowTone={(tx) =>
             tx.status === "approved" ? "default" : tx.status === "disputed" ? "attention" : "muted"
           }

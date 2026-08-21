@@ -74,7 +74,17 @@ export type PartyPayment = {
   taxPreliminary?: boolean;
 };
 
-export type TransactionStatus = "draft" | "pending" | "approved" | "disputed";
+/**
+ * En posts läge i godkännandeflödet.
+ *
+ * - `draft` – utkast som bara registratorn ser. Får raderas.
+ * - `pending` – inskickad, väntar på motpartens godkännande.
+ * - `withdrawn` – återkallad av registratorn innan motparten hann ta ställning.
+ *   Posten försvinner inte, den slutar bara efterfråga ett godkännande.
+ * - `approved` – godkänd av båda och därmed en del av beräkningen.
+ * - `disputed` – motparten har invänt. Ligger utanför beräkningen tills den löses.
+ */
+export type TransactionStatus = "draft" | "pending" | "withdrawn" | "approved" | "disputed";
 
 export type Transaction = {
   id: string;
@@ -92,6 +102,15 @@ export type Transaction = {
   status: TransactionStatus;
   /** Korrigeringspost: ersätter posten med detta ID när båda godkänt (ersättningssemantik). */
   correctsId?: string | null;
+  /**
+   * Makuleringspost: tar bort posten med detta ID ur beräkningen när båda
+   * godkänt. Ursprungsposten raderas aldrig, den slutar bara räknas och
+   * märks som makulerad (avtal 14.3). En makuleringspost har inga egna
+   * betalningar och är alltså en ren bokföringsmarkering.
+   */
+  voidsId?: string | null;
+  /** Skälet till korrigeringen eller makuleringen. Krävs för båda. */
+  reason?: string;
 };
 
 /** Uttrycklig avstämning av lånesaldot, t.ex. vid omläggning. */

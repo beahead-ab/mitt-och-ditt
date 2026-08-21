@@ -131,6 +131,39 @@ Detta är ny funktionalitet som inte kan verifieras mot arket — den verifieras
 
 Uppdragsbeskrivningen kräver länkade korrigeringsposter men definierar inte vad korrigeringen *är*. Jag föreslår **ersättningssemantik**: en korrigeringspost är en komplett ny version av posten (alla fält), som när båda godkänt den ersätter originalet i beräkningen. Originalet behålls synligt, märkt "ersatt av K-0007". Alternativet (deltaposter som justerar belopp) är svårare att granska och lätt att göra fel. Sena händelser som hör till en befintlig post — försäkringsersättning, slutligt skattebesked — registreras som korrigering av originalposten, inte som egen post, så att nettokostnaden (avtal 7.5) alltid ligger samlad på rätt betalningsdag.
 
+### 3.2b Radering: ingenting raderas, saker upphör att gälla
+
+Avtalets punkt 14.3 är kategorisk: *"Godkända poster får inte raderas. Fel rättas genom ny korrigeringspost."* Det ger fyra lägen, och bara ett av dem innehåller en verklig radering.
+
+| Läge | Vad som händer | Varför |
+|---|---|---|
+| **Utkast** – bara registratorn har sett den | Får **raderas** på riktigt. Raderingen noteras i aktivitetsloggen. | Posten har aldrig varit en del av det gemensamma underlaget och har aldrig påverkat något. Att tvinga fram en makulering för en halvskriven rad vore bara friktion. |
+| **Väntar på godkännande** | Registratorn kan **återkalla** den. Status blir `Återkallad`, posten ligger kvar. | Motparten har fått en förfrågan att ta ställning till. Att förfrågan drogs tillbaka är i sig en uppgift värd att bevara. |
+| **Godkänd** | **Makuleras** med en ny, länkad makuleringspost som båda parter godkänner, med angivet skäl. Originalet ligger kvar synligt, märkt "Makulerad · se M-0007". | Punkt 14.3. En godkänd post är ett gemensamt åtagande och kan inte tas bort ensidigt. |
+| **Kostnadsklassificering** | **Upphävs från ett datum**, aldrig retroaktivt. | En betalning som gjordes medan klassificeringen gällde måste fortsätta räknas med den. Att radera en regel skulle tyst skriva om historien. |
+
+Korrigering och makulering är samma mekanism i två former: **en korrigering ersätter posten med nya värden, en makulering ersätter den med ingenting.** Motorn behandlar dem likadant – båda kräver bådas godkännande, båda lämnar originalet orört och länkat.
+
+En följd värd att notera: makuleras en korrigeringspost återuppstår inte ursprungsposten. Den var redan ersatt, och hela posten utgår därmed. Det är testat och avsiktligt.
+
+### 3.2c Versionshistorik per cell
+
+Ingenting skrivs över. Varje ändring skapar en **ny version av hela posten**, och cellernas historik **härleds** ur skillnaden mellan versionerna i stället för att lagras separat. Det är ett medvetet val: en fristående cellogg kan hamna i otakt med det faktiska värdet, och i ett bevisverktyg får det aldrig hända.
+
+Godkännandet hör till hela posten, inte till en enskild cell – man kan inte godkänna ett nytt belopp men inte det nya datumet. Versionen är därför den minsta enhet parterna tar ställning till.
+
+I gränssnittet ger det tre saker:
+
+- **Hörnmarkör** på celler som har ändrats, som en notering i ett kalkylark.
+- **Högerklick på cellen** visar varje ändring med värdet före och efter, vem som gjorde den, när den började gälla och skälet.
+- **Tidsresa över hela underlaget**: välj en tidpunkt och se både posterna och beräkningen som de såg ut då. Eftersom motorn alltid räknar om från startdagen blir den återskapade beräkningen korrekt utan att något behöver sparas.
+
+Notera skillnaden mellan *skriven* och *gällande*: en version som bara en part godkänt har inte börjat gälla och räknas därför inte in i läget vid en tidpunkt, hur nyskriven den än är.
+
+### 3.2d Rätten till radering och den oföränderliga loggen
+
+En append-only-logg står i spänning med dataskyddsförordningens rätt till radering. Vår position: loggen innehåller inga personuppgifter utöver användar-ID och de ekonomiska uppgifter som behövs för att fullgöra avtalet mellan parterna. **Bilagor** – kvitton och foton – kan däremot behöva tas bort. De raderas genom en gravsten: filen försvinner, men dess hash, storlek, uppladdare och tidpunkt ligger kvar, så att hashkedjan förblir obruten och det syns att något har tagits bort. Personnummer lagras inte alls (3.6), vilket tar bort den känsligaste delen av problemet från början.
+
 ### 3.3 Registrering räknas som registratorns godkännande
 
 "Båda parters godkännande" bör i praktiken betyda: den som registrerar bekräftar posten i samma flöde (explicit knapp, loggas som godkännande), motparten godkänner separat. Att kräva att registratorn ska gå tillbaka och godkänna sin egen post i ett separat steg ger bara friktion utan bevisvärde. Spärren som betyder något — **ingen kan godkänna för den andra** — tvingas i databasen (RLS: godkännanderaden måste ha `user_id = auth.uid()`), inte bara i UI:t.

@@ -1,7 +1,15 @@
-import { ArrowDown, ArrowUp, Keyboard } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, History, Keyboard } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   cellAt,
@@ -18,6 +26,8 @@ import {
   type GridSelection,
   type SortState,
 } from "@/lib/grid";
+import { fmtDateTime } from "@/lib/format";
+import type { CellChange } from "@/lib/revisions";
 import { cn } from "@/lib/utils";
 
 export type GridColumn<T> = {
@@ -46,6 +56,13 @@ type Props<T> = {
   rowTone?: (row: T) => "default" | "muted" | "attention";
   caption: string;
   empty: string;
+  /**
+   * Cellens ändringshistorik. Ges den visas en hörnmarkör på ändrade celler,
+   * och högerklick öppnar historiken med värdet före och efter varje ändring.
+   */
+  cellHistory?: (row: T, columnKey: string) => CellChange[];
+  /** Visar vem som gjorde ändringen med namn i stället för ID. */
+  personName?: (id: string) => string;
 };
 
 /** Radnummerkolumnen till vänster. ID-kolumnen fryses direkt efter den. */
@@ -80,6 +97,8 @@ export function DataGrid<T>({
   rowTone,
   caption,
   empty,
+  cellHistory,
+  personName,
 }: Props<T>) {
   const [sort, setSort] = useState<SortState>(null);
   const [selection, setSelection] = useState<GridSelection>(() => cellAt(0, 0));
@@ -129,6 +148,18 @@ export function DataGrid<T>({
     }
   }, [selection, columns, sorted, range]);
 
+  const copyCell = useCallback(async () => {
+    const row = sorted[selection.focus.row];
+    const column = columns[selection.focus.col];
+    if (!row || !column) return;
+    try {
+      await navigator.clipboard.writeText(column.text(row));
+      toast.success("Cellen kopierad");
+    } catch {
+      toast.error("Kunde inte kopiera. Webbläsaren nekade åtkomst till urklipp.");
+    }
+  }, [sorted, columns, selection]);
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (bounds.rows === 0) return;
     const jump = event.ctrlKey || event.metaKey;
@@ -174,6 +205,9 @@ export function DataGrid<T>({
 
   // Fasta kolumnbredder, som i ett kalkylark. Flexibla kolumner skulle sträcka
   // ut varje kolumn till samma bredd och göra rutnätet oläsligt.
+  const changedCell = (row: T, columnKey: string) =>
+    cellHistory ? cellHistory(row, columnKey).length > 1 : false;
+
   const gridTemplate = `${GUTTER} ${columns.map((c) => `${c.width}rem`).join(" ")}`;
 
   if (rows.length === 0) {
@@ -193,147 +227,255 @@ export function DataGrid<T>({
         <KeyboardHelp canActivate={Boolean(onActivate)} />
       </div>
 
-      <div
-        ref={bodyRef}
-        role="grid"
-        aria-label={caption}
-        aria-rowcount={sorted.length + 1}
-        aria-colcount={columns.length}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false);
-        }}
-        className="hairline-card w-full overflow-auto rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        style={{ maxHeight: "min(70vh, 40rem)" }}
-      >
-        <div className="min-w-max">
-          {/* Huvudrad */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
           <div
-            role="row"
-            aria-rowindex={1}
-            className="sticky top-0 z-20 grid border-b border-hairline bg-secondary"
-            style={{ gridTemplateColumns: gridTemplate }}
+            ref={bodyRef}
+            role="grid"
+            aria-label={caption}
+            aria-rowcount={sorted.length + 1}
+            aria-colcount={columns.length}
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false);
+            }}
+            className="hairline-card w-full overflow-auto rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={{ maxHeight: "min(70vh, 40rem)" }}
           >
-            <div
-              role="columnheader"
-              aria-label="Rad"
-              className="sticky left-0 z-10 border-r border-hairline bg-secondary px-2 py-2"
-            />
-            {columns.map((column, colIndex) => {
-              const isSorted = sort?.key === column.key;
-              const inSelection = colIndex >= range.left && colIndex <= range.right;
-              return (
-                <button
-                  key={column.key}
-                  role="columnheader"
-                  type="button"
-                  aria-sort={
-                    isSorted ? (sort.direction === "asc" ? "ascending" : "descending") : "none"
-                  }
-                  aria-colindex={colIndex + 1}
-                  tabIndex={-1}
-                  onClick={() => setSort((current) => nextSort(current, column.key))}
-                  style={colIndex === 0 ? { left: GUTTER, boxShadow: FROZEN_EDGE } : undefined}
-                  className={cn(
-                    "flex items-center gap-1 border-r border-hairline bg-secondary px-3 py-2 text-left text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground transition-colors last:border-r-0 hover:text-foreground",
-                    column.align === "right" || column.numeric ? "justify-end" : "justify-start",
-                    inSelection && focused && "text-foreground",
-                    colIndex === 0 && "sticky z-10",
-                  )}
-                  title={`Sortera på ${column.header}`}
-                >
-                  <span className="truncate">{column.header}</span>
-                  {isSorted &&
-                    (sort.direction === "asc" ? (
-                      <ArrowUp className="size-3 shrink-0" />
-                    ) : (
-                      <ArrowDown className="size-3 shrink-0" />
-                    ))}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Rader */}
-          {sorted.map((row, rowIndex) => {
-            const tone = rowTone?.(row) ?? "default";
-            const rowInSelection = rowIndex >= range.top && rowIndex <= range.bottom;
-            return (
+            <div className="min-w-max">
+              {/* Huvudrad */}
               <div
                 role="row"
-                aria-rowindex={rowIndex + 2}
-                key={rowKey(row)}
-                className="grid border-b border-hairline last:border-b-0"
+                aria-rowindex={1}
+                className="sticky top-0 z-20 grid border-b border-hairline bg-secondary"
                 style={{ gridTemplateColumns: gridTemplate }}
               >
                 <div
-                  role="rowheader"
-                  className={cn(
-                    "sticky left-0 z-10 border-r border-hairline px-2 py-1.5 text-right text-[0.7rem] tabular text-muted-foreground",
-                    rowInSelection && focused ? "bg-secondary text-foreground" : "bg-card",
-                  )}
-                >
-                  {rowIndex + 1}
-                </div>
+                  role="columnheader"
+                  aria-label="Rad"
+                  className="sticky left-0 z-10 border-r border-hairline bg-secondary px-2 py-2"
+                />
                 {columns.map((column, colIndex) => {
-                  const isActive =
-                    selection.focus.row === rowIndex && selection.focus.col === colIndex;
-                  const inRange = isInRange(range, rowIndex, colIndex);
+                  const isSorted = sort?.key === column.key;
+                  const inSelection = colIndex >= range.left && colIndex <= range.right;
                   return (
-                    <div
-                      role="gridcell"
-                      aria-colindex={colIndex + 1}
-                      aria-selected={inRange}
+                    <button
                       key={column.key}
-                      ref={isActive ? activeCellRef : undefined}
-                      onMouseDown={(event) => {
-                        setFocused(true);
-                        bodyRef.current?.focus();
-                        setSelection((current) =>
-                          event.shiftKey
-                            ? { anchor: current.anchor, focus: { row: rowIndex, col: colIndex } }
-                            : cellAt(rowIndex, colIndex),
-                        );
-                      }}
-                      onDoubleClick={() => onActivate?.(row)}
-                      title={column.text(row) || undefined}
+                      role="columnheader"
+                      type="button"
+                      aria-sort={
+                        isSorted ? (sort.direction === "asc" ? "ascending" : "descending") : "none"
+                      }
+                      aria-colindex={colIndex + 1}
+                      tabIndex={-1}
+                      onClick={() => setSort((current) => nextSort(current, column.key))}
                       style={colIndex === 0 ? { left: GUTTER, boxShadow: FROZEN_EDGE } : undefined}
                       className={cn(
-                        "relative min-w-0 cursor-default select-none border-r border-hairline px-3 py-1.5 text-sm last:border-r-0",
-                        column.numeric && "tabular",
-                        column.align === "right" || column.numeric ? "text-right" : "text-left",
-                        tone === "muted" && "text-muted-foreground",
-                        // Den frysta kolumnen behöver egen bakgrund, annars
-                        // syns raderna igenom när rutnätet rullas i sidled.
-                        colIndex === 0 &&
-                          (inRange ? "sticky z-[5] bg-secondary" : "sticky z-[5] bg-card"),
-                        inRange && !isActive && colIndex !== 0 && "bg-primary/8",
-                        isActive &&
-                          focused &&
-                          "z-10 outline outline-2 -outline-offset-2 outline-primary",
-                        isActive && !focused && "bg-secondary",
+                        "flex items-center gap-1 border-r border-hairline bg-secondary px-3 py-2 text-left text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground transition-colors last:border-r-0 hover:text-foreground",
+                        column.align === "right" || column.numeric
+                          ? "justify-end"
+                          : "justify-start",
+                        inSelection && focused && "text-foreground",
+                        colIndex === 0 && "sticky z-10",
                       )}
+                      title={`Sortera på ${column.header}`}
                     >
-                      {tone === "attention" && colIndex === 0 && (
-                        <span
-                          aria-hidden
-                          className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--data-gold)]"
-                        />
-                      )}
-                      <span className="block truncate">
-                        {column.render ? column.render(row) : column.text(row)}
-                      </span>
-                    </div>
+                      <span className="truncate">{column.header}</span>
+                      {isSorted &&
+                        (sort.direction === "asc" ? (
+                          <ArrowUp className="size-3 shrink-0" />
+                        ) : (
+                          <ArrowDown className="size-3 shrink-0" />
+                        ))}
+                    </button>
                   );
                 })}
               </div>
-            );
-          })}
-        </div>
-      </div>
+
+              {/* Rader */}
+              {sorted.map((row, rowIndex) => {
+                const tone = rowTone?.(row) ?? "default";
+                const rowInSelection = rowIndex >= range.top && rowIndex <= range.bottom;
+                return (
+                  <div
+                    role="row"
+                    aria-rowindex={rowIndex + 2}
+                    key={rowKey(row)}
+                    className="grid border-b border-hairline last:border-b-0"
+                    style={{ gridTemplateColumns: gridTemplate }}
+                  >
+                    <div
+                      role="rowheader"
+                      className={cn(
+                        "sticky left-0 z-10 border-r border-hairline px-2 py-1.5 text-right text-[0.7rem] tabular text-muted-foreground",
+                        rowInSelection && focused ? "bg-secondary text-foreground" : "bg-card",
+                      )}
+                    >
+                      {rowIndex + 1}
+                    </div>
+                    {columns.map((column, colIndex) => {
+                      const isActive =
+                        selection.focus.row === rowIndex && selection.focus.col === colIndex;
+                      const inRange = isInRange(range, rowIndex, colIndex);
+                      return (
+                        <div
+                          role="gridcell"
+                          aria-colindex={colIndex + 1}
+                          aria-selected={inRange}
+                          key={column.key}
+                          ref={isActive ? activeCellRef : undefined}
+                          onMouseDown={(event) => {
+                            setFocused(true);
+                            bodyRef.current?.focus();
+                            setSelection((current) =>
+                              event.shiftKey
+                                ? {
+                                    anchor: current.anchor,
+                                    focus: { row: rowIndex, col: colIndex },
+                                  }
+                                : cellAt(rowIndex, colIndex),
+                            );
+                          }}
+                          onContextMenu={() => {
+                            setFocused(true);
+                            setSelection(cellAt(rowIndex, colIndex));
+                          }}
+                          onDoubleClick={() => onActivate?.(row)}
+                          title={column.text(row) || undefined}
+                          style={
+                            colIndex === 0 ? { left: GUTTER, boxShadow: FROZEN_EDGE } : undefined
+                          }
+                          className={cn(
+                            "relative min-w-0 cursor-default select-none border-r border-hairline px-3 py-1.5 text-sm last:border-r-0",
+                            column.numeric && "tabular",
+                            column.align === "right" || column.numeric ? "text-right" : "text-left",
+                            tone === "muted" && "text-muted-foreground",
+                            // Den frysta kolumnen behöver egen bakgrund, annars
+                            // syns raderna igenom när rutnätet rullas i sidled.
+                            colIndex === 0 &&
+                              (inRange ? "sticky z-[5] bg-secondary" : "sticky z-[5] bg-card"),
+                            inRange && !isActive && colIndex !== 0 && "bg-primary/8",
+                            isActive &&
+                              focused &&
+                              "z-10 outline outline-2 -outline-offset-2 outline-primary",
+                            isActive && !focused && "bg-secondary",
+                          )}
+                        >
+                          {tone === "attention" && colIndex === 0 && (
+                            <span
+                              aria-hidden
+                              className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--data-gold)]"
+                            />
+                          )}
+                          {changedCell(row, column.key) && (
+                            <span
+                              aria-hidden
+                              title="Cellen har ändrats. Högerklicka för historiken."
+                              className="absolute right-0 top-0 border-l-[5px] border-t-[5px] border-l-transparent border-t-primary"
+                            />
+                          )}
+                          <span className="block truncate">
+                            {column.render ? column.render(row) : column.text(row)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-80">
+          <CellHistory
+            column={columns[selection.focus.col]}
+            row={sorted[selection.focus.row]}
+            cellHistory={cellHistory}
+            personName={personName}
+            onCopy={() => void copyCell()}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
     </div>
+  );
+}
+
+function CellHistory<T>({
+  column,
+  row,
+  cellHistory,
+  personName,
+  onCopy,
+}: {
+  column: GridColumn<T> | undefined;
+  row: T | undefined;
+  cellHistory?: (row: T, columnKey: string) => CellChange[];
+  personName?: (id: string) => string;
+  onCopy: () => void;
+}) {
+  if (!column || !row) return null;
+  const changes = cellHistory?.(row, column.key) ?? [];
+  const name = (id: string) => personName?.(id) ?? id;
+
+  return (
+    <>
+      <ContextMenuLabel className="text-xs font-normal text-muted-foreground">
+        {column.header}
+      </ContextMenuLabel>
+      <ContextMenuItem onSelect={onCopy}>
+        <Copy className="mr-2 size-3.5" /> Kopiera cellen
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <div className="px-2 py-1.5">
+        <p className="eyebrow mb-2 flex items-center gap-1.5">
+          <History className="size-3" /> Cellens historia
+        </p>
+        {changes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Ingen historik finns för den här posten än.
+          </p>
+        ) : changes.length === 1 ? (
+          <p className="text-xs text-muted-foreground">
+            Oförändrad sedan posten registrerades{" "}
+            {fmtDateTime(changes[0].effectiveAt ?? changes[0].changedAt)} av{" "}
+            {name(changes[0].authorId)}.
+          </p>
+        ) : (
+          <ol className="grid gap-2.5">
+            {[...changes].reverse().map((change) => (
+              <li key={change.version} className="text-xs">
+                <p className="flex flex-wrap items-baseline gap-1.5">
+                  {change.from === null ? (
+                    <span className="text-muted-foreground">Registrerad som</span>
+                  ) : (
+                    <>
+                      <span className="tabular text-muted-foreground line-through">
+                        {change.from}
+                      </span>
+                      <span aria-hidden className="text-muted-foreground">
+                        →
+                      </span>
+                    </>
+                  )}
+                  <span className="tabular font-medium text-foreground">{change.to}</span>
+                </p>
+                <p className="mt-0.5 text-muted-foreground">
+                  {name(change.authorId)} ·{" "}
+                  {change.effectiveAt
+                    ? fmtDateTime(change.effectiveAt)
+                    : `${fmtDateTime(change.changedAt)} · väntar på godkännande`}
+                </p>
+                {change.reason && (
+                  <p className="mt-0.5 italic text-muted-foreground">{change.reason}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </>
   );
 }
 

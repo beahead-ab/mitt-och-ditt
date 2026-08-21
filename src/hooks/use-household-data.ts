@@ -1,18 +1,21 @@
 import { useMemo } from "react";
 
-import { DEMO_AGREEMENT, DEMO_TRANSACTIONS, isDemo } from "@/lib/demo";
+import { DEMO_AGREEMENT, DEMO_REVISIONS, DEMO_TRANSACTIONS, isDemo } from "@/lib/demo";
 import {
   defaultCategoryRules,
   type AgreementParams,
   type CostCategoryRule,
   type Transaction,
 } from "@/lib/engine";
+import type { RecordVersion } from "@/lib/revisions";
 import { SEED_AGREEMENT } from "@/lib/seed";
 
 export type HouseholdData = {
   agreement: AgreementParams;
   rules: CostCategoryRule[];
   transactions: Transaction[];
+  /** Versionshistorik per post. Cellernas historik härleds ur den. */
+  revisions: Map<string, RecordVersion<Transaction>[]>;
 };
 
 /**
@@ -29,6 +32,7 @@ export function useHouseholdData(): HouseholdData {
       // från ett annat avtal hamnar varje post utanför enhetsmodellen.
       rules: defaultCategoryRules(agreement.startDate),
       transactions: isDemo ? DEMO_TRANSACTIONS : [],
+      revisions: isDemo ? DEMO_REVISIONS : new Map(),
     };
   }, []);
 }

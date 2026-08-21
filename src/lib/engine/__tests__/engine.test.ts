@@ -442,3 +442,112 @@ describe("Slutavräkning", () => {
     );
   });
 });
+
+describe("Makulering", () => {
+  it("tar bort posten ur beräkningen utan att radera den", () => {
+    const result = calculate(
+      input({
+        transactions: [
+          tx({
+            id: "T1",
+            payments: { [FELICIA]: { gross: kr(10_000) } },
+            specialKey: { [CAESAR]: 0.8, [FELICIA]: 0.2 },
+          }),
+          tx({ id: "M1", voidsId: "T1", reason: "Posten hörde inte hit", payments: {} }),
+        ],
+      }),
+    );
+
+    expect(result.events).toHaveLength(0);
+    expect(result.finalUnits[FELICIA]).toBe(180_000);
+    expect(result.excluded).toContainEqual({ transactionId: "T1", reason: "Makulerad" });
+    // Ursprungsposten finns kvar i underlaget och kan visas för parterna.
+    expect(result.excluded.map((e) => e.transactionId)).toContain("T1");
+  });
+
+  it("skapar ingen egen dagsberäkning", () => {
+    const result = calculate(
+      input({
+        transactions: [
+          tx({ id: "T1", category: "Reparation", payments: { [CAESAR]: { gross: kr(5_000) } } }),
+          tx({
+            id: "M1",
+            paymentDate: addDays(START_DATE, 30),
+            voidsId: "T1",
+            reason: "Dubbelregistrerad",
+            payments: {},
+          }),
+        ],
+      }),
+    );
+
+    expect(result.events).toHaveLength(0);
+    expect(result.excluded).toContainEqual({
+      transactionId: "M1",
+      reason: "Makuleringspost utan egen ekonomisk effekt",
+    });
+  });
+
+  it("verkar först när båda parter godkänt makuleringen", () => {
+    const result = calculate(
+      input({
+        transactions: [
+          tx({
+            id: "T1",
+            payments: { [FELICIA]: { gross: kr(10_000) } },
+            specialKey: { [CAESAR]: 0.8, [FELICIA]: 0.2 },
+          }),
+          tx({ id: "M1", voidsId: "T1", status: "pending", payments: {} }),
+        ],
+      }),
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].transactionIds).toEqual(["T1"]);
+    expect(toKronor(result.events[0].overpayment)).toBe(8_000);
+  });
+
+  it("makulerad korrigering låter inte ursprungsposten återuppstå", () => {
+    const result = calculate(
+      input({
+        transactions: [
+          tx({
+            id: "T1",
+            payments: { [FELICIA]: { gross: kr(10_000) } },
+            specialKey: { [CAESAR]: 0.8, [FELICIA]: 0.2 },
+          }),
+          tx({
+            id: "K1",
+            correctsId: "T1",
+            payments: { [FELICIA]: { gross: kr(4_000) } },
+            specialKey: { [CAESAR]: 0.8, [FELICIA]: 0.2 },
+          }),
+          tx({ id: "M1", voidsId: "K1", reason: "Hela posten utgår", payments: {} }),
+        ],
+      }),
+    );
+
+    // Både ursprunget och korrigeringen står utanför: hela posten är borta.
+    expect(result.events).toHaveLength(0);
+    expect(result.finalUnits[FELICIA]).toBe(180_000);
+    const reasons = Object.fromEntries(result.excluded.map((e) => [e.transactionId, e.reason]));
+    expect(reasons.T1).toBe("Ersatt av korrigeringspost");
+    expect(reasons.K1).toBe("Makulerad");
+  });
+
+  it("återkallade och tvistiga poster får egna skäl", () => {
+    const result = calculate(
+      input({
+        transactions: [
+          tx({ id: "T1", status: "withdrawn", payments: { [CAESAR]: { gross: kr(1_000) } } }),
+          tx({ id: "T2", status: "disputed", payments: { [CAESAR]: { gross: kr(1_000) } } }),
+          tx({ id: "T3", status: "draft", payments: { [CAESAR]: { gross: kr(1_000) } } }),
+        ],
+      }),
+    );
+    const reasons = Object.fromEntries(result.excluded.map((e) => [e.transactionId, e.reason]));
+    expect(reasons.T1).toBe("Återkallad av registratorn");
+    expect(reasons.T2).toContain("Tvistig");
+    expect(reasons.T3).toBe("Utkast");
+  });
+});

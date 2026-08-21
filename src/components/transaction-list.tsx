@@ -9,6 +9,7 @@ const STATUS: Record<
 > = {
   draft: { label: "Utkast", variant: "outline" },
   pending: { label: "Väntar på godkännande", variant: "secondary" },
+  withdrawn: { label: "Återkallad", variant: "outline" },
   approved: { label: "Godkänd av båda", variant: "default" },
   disputed: { label: "Tvistig", variant: "destructive" },
 };
