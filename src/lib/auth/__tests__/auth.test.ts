@@ -23,8 +23,9 @@ describe("Lösenord", () => {
     expect(stored.startsWith("scrypt$")).toBe(true);
   });
 
-  it("kräver minst tolv tecken", async () => {
-    await expect(hashPassword("för kort")).rejects.toThrow(/tolv|12/i);
+  it("kräver minst åtta tecken", async () => {
+    await expect(hashPassword("Abc123!")).rejects.toThrow(/8/i);
+    await expect(hashPassword("Abc123!!")).resolves.toMatch(/^scrypt\$/);
   });
 
   it("behandlar likvärdig unicode som samma lösenord", async () => {

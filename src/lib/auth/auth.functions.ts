@@ -89,7 +89,7 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .object({
         token: z.string().min(10).max(200),
         name: z.string().trim().min(1).max(80),
-        password: z.string().min(12).max(400),
+        password: z.string().min(8).max(400),
       })
       .parse(input),
   )

@@ -23,7 +23,7 @@ const KEY_LENGTH = 64;
 const SALT_LENGTH = 16;
 const MAX_MEMORY = 256 * 1024 * 1024;
 
-export const MIN_PASSWORD_LENGTH = 12;
+export const MIN_PASSWORD_LENGTH = 8;
 
 export async function hashPassword(password: string): Promise<string> {
   if (password.normalize("NFKC").length < MIN_PASSWORD_LENGTH) {
