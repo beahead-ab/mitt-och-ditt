@@ -21,6 +21,7 @@ export type AdminUser = {
   id: string;
   email: string;
   name: string;
+  isSelf: boolean;
   isAdmin: boolean;
   hasPassword: boolean;
   disabledAt: string | null;
@@ -55,6 +56,7 @@ export const listUsers = createServerFn({ method: "GET" }).handler(
         id: row.id,
         email: row.email,
         name: row.name,
+        isSelf: row.id === user.id,
         isAdmin: row.is_admin,
         // Lösenordshashen lämnar aldrig servern; bara om den finns.
         hasPassword: row.password_hash !== null,
@@ -65,6 +67,84 @@ export const listUsers = createServerFn({ method: "GET" }).handler(
     });
   },
 );
+
+export const createUser = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        name: z.string().trim().min(1).max(80),
+        email: z.string().trim().toLowerCase().email().max(255),
+        password: z.string().min(8).max(400),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const user = await admin();
+    const { hashPassword } = await import("@/lib/auth/password");
+    const { asUser } = await import("@/lib/db/client.server");
+
+    try {
+      return await asUser(user.id, async (sql) => {
+        const [created] = await sql<{ id: string }[]>`
+          insert into users (email, name, password_hash)
+          values (${data.email}, ${data.name}, ${await hashPassword(data.password)})
+          returning id
+        `;
+        await sql`
+          insert into audit_events
+            (household_id, event_type, entity_type, entity_id, actor_id, new_value)
+          values (null, 'admin.user_created', 'user', ${created.id}, ${user.id},
+                  ${sql.json({ email: data.email, name: data.name })})
+        `;
+        return { id: created.id };
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === "23505") {
+        throw new Error("Det finns redan ett konto med den e-postadressen.");
+      }
+      throw error;
+    }
+  });
+
+export const deleteUser = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const user = await admin();
+    if (data.userId === user.id) {
+      throw new Error("Du kan inte ta bort ditt eget administratörskonto.");
+    }
+    const { asUser } = await import("@/lib/db/client.server");
+
+    try {
+      await asUser(user.id, async (sql) => {
+        const [target] = await sql<{ id: string; email: string; name: string }[]>`
+          select id, email, name from users where id = ${data.userId}
+        `;
+        if (!target) throw new Error("Kontot finns inte längre.");
+
+        const removed = await sql<{ id: string }[]>`
+          delete from users where id = ${data.userId} returning id
+        `;
+        if (!removed[0]) throw new Error("Kontot kunde inte tas bort.");
+
+        await sql`
+          insert into audit_events
+            (household_id, event_type, entity_type, entity_id, actor_id, previous_value)
+          values (null, 'admin.user_deleted', 'user', ${target.id}, ${user.id},
+                  ${sql.json({ email: target.email, name: target.name })})
+        `;
+      });
+    } catch (error) {
+      const pg = error as { code?: string; message?: string };
+      if (pg.code === "23503" || /Aktivitetsloggen|gällande version/i.test(pg.message ?? "")) {
+        throw new Error(
+          "Kontot har historik som måste bevaras och kan därför inte tas bort. Stäng av kontot i stället.",
+        );
+      }
+      throw error;
+    }
+    return { ok: true as const };
+  });
 
 export const setUserDisabled = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
@@ -124,6 +204,68 @@ export const listHouseholdsAdmin = createServerFn({ method: "GET" }).handler(
     });
   },
 );
+
+export const createHousehold = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ name: z.string().trim().min(1).max(120) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const user = await admin();
+    const { asUser } = await import("@/lib/db/client.server");
+    return asUser(user.id, async (sql) => {
+      const [household] = await sql<{ id: string }[]>`
+        insert into households (name) values (${data.name}) returning id
+      `;
+      await sql`insert into agreements (household_id) values (${household.id})`;
+      await sql`
+        insert into audit_events
+          (household_id, event_type, entity_type, entity_id, actor_id, new_value)
+        values (null, 'admin.household_created', 'household', ${household.id}, ${user.id},
+                ${sql.json({ name: data.name })})
+      `;
+      return { id: household.id };
+    });
+  });
+
+export const deleteHousehold = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ householdId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const user = await admin();
+    const { asUser } = await import("@/lib/db/client.server");
+
+    try {
+      await asUser(user.id, async (sql) => {
+        const [target] = await sql<{ id: string; name: string }[]>`
+          select id, name from households where id = ${data.householdId}
+        `;
+        if (!target) throw new Error("Hushållet finns inte längre.");
+
+        const removed = await sql<{ id: string }[]>`
+          delete from households where id = ${data.householdId} returning id
+        `;
+        if (!removed[0]) throw new Error("Hushållet kunde inte tas bort.");
+
+        await sql`
+          insert into audit_events
+            (household_id, event_type, entity_type, entity_id, actor_id, previous_value)
+          values (null, 'admin.household_deleted', 'household', ${target.id}, ${user.id},
+                  ${sql.json({ name: target.name })})
+        `;
+      });
+    } catch (error) {
+      const pg = error as { code?: string; message?: string };
+      if (
+        pg.code === "23503" ||
+        /Aktivitetsloggen|gällande version|kan bara läggas till/i.test(pg.message ?? "")
+      ) {
+        throw new Error(
+          "Hushållet innehåller historik som måste bevaras och kan därför inte tas bort.",
+        );
+      }
+      throw error;
+    }
+    return { ok: true as const };
+  });
 
 export const saveProperty = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>

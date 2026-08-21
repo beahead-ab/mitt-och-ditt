@@ -135,6 +135,60 @@ describeDb("Administratören hanterar åtkomst", () => {
     expect(invite.id).toBeTruthy();
   });
 
+  it("kan skapa och ta bort ett oanvänt konto", async () => {
+    const [created] = await asUser(
+      app,
+      ids.admin,
+      (tx) => tx`
+        insert into users (email, name, password_hash)
+        values ('oanvand@x.se', 'Oanvänd', 'tillfallig-hash') returning id
+      `,
+    );
+    expect(created.id).toBeTruthy();
+
+    await asUser(app, ids.admin, (tx) => tx`delete from users where id = ${created.id}`);
+    const rows = await owner`select id from users where id = ${created.id}`;
+    expect(rows).toHaveLength(0);
+  });
+
+  it("kan aldrig ta bort sitt eget administratörskonto", async () => {
+    const rejected = await isRejected(() =>
+      asUser(app, ids.admin, (tx) => tx`delete from users where id = ${ids.admin}`),
+    );
+    expect(rejected).toBe(true);
+    const rows = await owner`select id from users where id = ${ids.admin}`;
+    expect(rows).toHaveLength(1);
+  });
+
+  it("kan skapa och ta bort ett tomt hushåll med avtalsskal", async () => {
+    const [household] = await asUser(
+      app,
+      ids.admin,
+      (tx) => tx`insert into households (name) values ('Tillfälligt hushåll') returning id`,
+    );
+    await asUser(
+      app,
+      ids.admin,
+      (tx) => tx`insert into agreements (household_id) values (${household.id})`,
+    );
+    const agreements = await owner`
+      select id from agreements where household_id = ${household.id}`;
+    expect(agreements).toHaveLength(1);
+
+    await asUser(app, ids.admin, (tx) => tx`delete from households where id = ${household.id}`);
+    const rows = await owner`select id from households where id = ${household.id}`;
+    expect(rows).toHaveLength(0);
+  });
+
+  it("kan inte radera ett hushåll med skyddad revisionshistorik", async () => {
+    const rejected = await isRejected(() =>
+      asUser(app, ids.admin, (tx) => tx`delete from households where id = ${ids.household}`),
+    );
+    expect(rejected).toBe(true);
+    const rows = await owner`select id from households where id = ${ids.household}`;
+    expect(rows).toHaveLength(1);
+  });
+
   it("kan återkalla en inbjudan men aldrig radera den", async () => {
     const [invite] = await owner`
       insert into invites (email, token_hash, household_id, party_id, display_name, expires_at)
@@ -244,6 +298,27 @@ describeDb("En vanlig part är inte administratör", () => {
       ),
     );
     expect(rejected).toBe(true);
+  });
+
+  it("kan varken skapa eller ta bort konton eller hushåll", async () => {
+    const createUser = await isRejected(() =>
+      asUser(
+        app,
+        ids.caesar,
+        (tx) => tx`insert into users (email, name) values ('otillaten@x.se', 'Otillåten')`,
+      ),
+    );
+    await asUser(app, ids.caesar, (tx) => tx`delete from users where id = ${ids.felicia}`);
+    const createHousehold = await isRejected(() =>
+      asUser(app, ids.caesar, (tx) => tx`insert into households (name) values ('Otillåtet')`),
+    );
+    await asUser(app, ids.caesar, (tx) => tx`delete from households where id = ${ids.household}`);
+    const [userRows, householdRows] = await Promise.all([
+      owner`select id from users where id = ${ids.felicia}`,
+      owner`select id from households where id = ${ids.household}`,
+    ]);
+    expect([createUser, createHousehold]).toEqual([true, true]);
+    expect([userRows.length, householdRows.length]).toEqual([1, 1]);
   });
 
   it("kan bara bjuda in den saknade motparten till sitt eget hushåll", async () => {
