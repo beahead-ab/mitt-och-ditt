@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Button } from "@/components/ui/button";
 import { useHousehold } from "@/components/household-context";
 import { SectionTabs } from "@/components/section-tabs";
-import { signOut as endSession } from "@/lib/auth";
+import { signOut as endSession } from "@/lib/auth/auth.functions";
 import { isDemo } from "@/lib/demo";
 
 type NavItem = { to: string; label: string; adminOnly?: boolean };
@@ -89,8 +89,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [open]);
 
   async function signOut() {
-    await endSession();
-    navigate({ to: "/auth", search: { next: undefined } });
+    if (!isDemo) await endSession();
+    // Hård navigering så att den rensade sessionskakan slår igenom.
+    window.location.href = "/auth";
   }
 
   return (

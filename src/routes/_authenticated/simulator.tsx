@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { defaultEndpoint, run, today } from "@/lib/calculation";
+import { NoAgreement } from "@/components/no-agreement";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import {
   compareDates,
@@ -32,7 +33,10 @@ import {
   parseDate,
   toIsoDate,
   toKronor,
+  type AgreementParams,
+  type CostCategoryRule,
   type Endpoint,
+  type Transaction,
 } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
 import { PARTY_LABELS } from "@/lib/seed";
@@ -50,8 +54,27 @@ const SERIES = {
 } as const;
 
 function Simulator() {
-  const { agreement, rules, transactions } = useHouseholdData();
+  const { agreement, rules, transactions, isLoading } = useHouseholdData();
+  if (!agreement) {
+    return (
+      <>
+        <PageHeader eyebrow="Prognos" title="Simulator" />
+        <NoAgreement loading={isLoading} />
+      </>
+    );
+  }
+  return <SimulatorFor agreement={agreement} rules={rules} transactions={transactions} />;
+}
 
+function SimulatorFor({
+  agreement,
+  rules,
+  transactions,
+}: {
+  agreement: AgreementParams;
+  rules: CostCategoryRule[];
+  transactions: Transaction[];
+}) {
   const base = useMemo(
     () => defaultEndpoint(agreement, rules, transactions),
     [agreement, rules, transactions],

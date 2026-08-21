@@ -16,10 +16,16 @@ import {
 } from "@/components/ui/select";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { defaultEndpoint, run } from "@/lib/calculation";
-import { compareDates } from "@/lib/engine";
+import { NoAgreement } from "@/components/no-agreement";
+import {
+  compareDates,
+  type AgreementParams,
+  type CostCategoryRule,
+  type Transaction,
+} from "@/lib/engine";
 import { fmtDateTime } from "@/lib/format";
 import { dayEventColumns } from "@/lib/grid-columns";
-import { recordsAsOf, timeline } from "@/lib/revisions";
+import { recordsAsOf, timeline, type RecordVersion } from "@/lib/revisions";
 
 export const Route = createFileRoute("/_authenticated/transaktioner/historik")({
   head: () => ({ meta: [{ title: "Historik – Mitt & Ditt" }] }),
@@ -27,7 +33,36 @@ export const Route = createFileRoute("/_authenticated/transaktioner/historik")({
 });
 
 function HistoryPage() {
-  const { agreement, rules, transactions, revisions } = useHouseholdData();
+  const { agreement, rules, transactions, revisions, isLoading } = useHouseholdData();
+  if (!agreement) {
+    return (
+      <>
+        <PageHeader eyebrow="Transaktioner" title="Historik" />
+        <NoAgreement loading={isLoading} />
+      </>
+    );
+  }
+  return (
+    <HistoryFor
+      agreement={agreement}
+      rules={rules}
+      transactions={transactions}
+      revisions={revisions}
+    />
+  );
+}
+
+function HistoryFor({
+  agreement,
+  rules,
+  transactions,
+  revisions,
+}: {
+  agreement: AgreementParams;
+  rules: CostCategoryRule[];
+  transactions: Transaction[];
+  revisions: Map<string, RecordVersion<Transaction>[]>;
+}) {
   /** null = nuläget. Annars den tidpunkt underlaget visas som det såg ut då. */
   const [asOf, setAsOf] = useState<string | null>(null);
 

@@ -31,6 +31,8 @@ npm run dev
 | `npm run typecheck` | TypeScript |
 | `npm test` | Beräkningsmotorns testsvit |
 | `npm run build` | Bygger till `.output` (Nitro node-server) |
+| `npm run db:migrate` | Kör migreringarna |
+| `npm run db:seed` | Skapar hushållet och skriver ut inbjudningslänkar |
 | `npm run preview` | Kör den byggda servern |
 
 ## Beräkningsmotorn
@@ -103,6 +105,29 @@ Korrigering och makulering är samma mekanism: en korrigering ersätter posten m
 nya värden, en makulering ersätter den med ingenting. Båda kräver båda parters
 godkännande och lämnar originalet orört och länkat. Kravet kommer från avtalets
 punkt 14.3.
+
+## Säkerhet
+
+Tjänsten är endast för inbjudna – det finns ingen öppen registrering. Lösenord
+hashas med scrypt, och sessions- och inbjudningstoken lagras bara som hash, så en
+läckt databasdump ger ingen tillgång.
+
+All dataåtkomst går genom Postgres radnivåsäkerhet. Applikationen använder en
+egen databasroll och sätter den inloggades identitet per transaktion; utan den
+ser rollen ingenting. Spärrarna ligger alltså i databasen, inte i gränssnittet:
+
+- ingen kan godkänna åt den andra parten, och inte heller i eget namn men med
+  motpartens partsroll,
+- en gällande version kan inte ändras eller raderas av någon roll, inte ens
+  ägaren,
+- ett avgivet godkännande kan inte tas tillbaka i efterhand,
+- aktivitetsloggen kan bara läggas till i, och varje rad hashar föregående rad så
+  att en ändring i efterhand bryter kedjan och går att upptäcka.
+
+Personnummer lagras inte någonstans. De finns i det undertecknade avtalet och
+behövs inte för någon funktion här.
+
+Allt detta är testat mot en riktig Postgres, inte bara läst i SQL-filerna.
 
 ## Drift
 

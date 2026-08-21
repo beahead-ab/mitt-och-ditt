@@ -1,23 +1,26 @@
+import { createServerFn } from "@tanstack/react-start";
+
 import { DEMO_USER, isDemo } from "@/lib/demo";
 
 export type SessionUser = {
   id: string;
   email: string | null;
-  /** Vilken part i hushållet användaren är. Styr vad hen får godkänna. */
-  partyId: string | null;
+  name: string;
+  isAdmin: boolean;
 };
 
-/**
- * Sessionshantering. I demoläge finns en fast användare. Riktig inloggning –
- * inbjudningsbaserade konton med cookie-session mot Postgres – byggs i etapp 2.
- */
+/** Läser sessionen på servern. I demoläge finns en fast användare. */
+export const currentUserFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<SessionUser | null> => {
+    const { readSession } = await import("@/lib/auth/session.server");
+    const user = await readSession();
+    return user ? { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin } : null;
+  },
+);
+
 export async function currentUser(): Promise<SessionUser | null> {
   if (isDemo) {
-    return { id: DEMO_USER.id, email: DEMO_USER.email, partyId: DEMO_USER.partyId };
+    return { id: DEMO_USER.id, email: DEMO_USER.email, name: "Caesar", isAdmin: true };
   }
-  return null;
-}
-
-export async function signOut(): Promise<void> {
-  // Etapp 2: rensar sessionskakan på servern.
+  return currentUserFn();
 }

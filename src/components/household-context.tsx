@@ -1,36 +1,66 @@
+import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 
 import { DEMO_HOUSEHOLD, isDemo } from "@/lib/demo";
+import { listHouseholds } from "@/lib/household.functions";
 
 export type Household = {
   id: string;
   name: string;
   propertyAddress: string | null;
+  parties: { partyId: string; userId: string; name: string }[];
 };
 
 type HouseholdContextValue = {
   household: Household | null;
+  households: Household[];
   isAdmin: boolean;
+  isLoading: boolean;
 };
 
-const HouseholdContext = createContext<HouseholdContextValue>({ household: null, isAdmin: false });
+const HouseholdContext = createContext<HouseholdContextValue>({
+  household: null,
+  households: [],
+  isAdmin: false,
+  isLoading: false,
+});
+
+const DEMO: Household = {
+  id: DEMO_HOUSEHOLD.id,
+  name: DEMO_HOUSEHOLD.name,
+  propertyAddress: DEMO_HOUSEHOLD.propertyAddress,
+  parties: [
+    { partyId: "caesar", userId: "demo-caesar", name: "Caesar" },
+    { partyId: "felicia", userId: "demo-felicia", name: "Felicia" },
+  ],
+};
 
 /**
  * Hushållskontexten motsvarar Bilkollens bilkontext. Ett konto har normalt
  * exakt ett hushåll; väljaren i toppfältet visas först när fler finns.
- * Riktig datahämtning kopplas in i etapp 2.
  */
-export function HouseholdProvider({ children }: { userId: string; children: ReactNode }) {
-  const value: HouseholdContextValue = isDemo
-    ? {
-        household: {
-          id: DEMO_HOUSEHOLD.id,
-          name: DEMO_HOUSEHOLD.name,
-          propertyAddress: DEMO_HOUSEHOLD.propertyAddress,
-        },
-        isAdmin: true,
-      }
-    : { household: null, isAdmin: false };
+export function HouseholdProvider({
+  children,
+  isAdmin,
+}: {
+  userId: string;
+  isAdmin: boolean;
+  children: ReactNode;
+}) {
+  const query = useQuery({
+    queryKey: ["households"],
+    queryFn: () => listHouseholds(),
+    enabled: !isDemo,
+    staleTime: 60_000,
+  });
+
+  const households = isDemo ? [DEMO] : (query.data ?? []);
+  const value: HouseholdContextValue = {
+    households,
+    household: households[0] ?? null,
+    isAdmin: isDemo ? true : isAdmin,
+    isLoading: !isDemo && query.isLoading,
+  };
 
   return <HouseholdContext.Provider value={value}>{children}</HouseholdContext.Provider>;
 }

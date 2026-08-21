@@ -3,9 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { Badge } from "@/components/ui/badge";
+import { NoAgreement } from "@/components/no-agreement";
+import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
-import { PARTY_LABELS, SEED_AGREEMENT, SEED_FORMAL_OWNERSHIP } from "@/lib/seed";
+import { useHousehold } from "@/components/household-context";
 
 export const Route = createFileRoute("/_authenticated/overenskommelse/")({
   head: () => ({ meta: [{ title: "Gällande överenskommelse – Mitt & Ditt" }] }),
@@ -24,8 +26,20 @@ const LOCKED = [
 ];
 
 function Current() {
-  const agreement = SEED_AGREEMENT;
-  const [a, b] = agreement.parties;
+  const { agreement, isLoading } = useHouseholdData();
+  const { household } = useHousehold();
+
+  if (!agreement) {
+    return (
+      <>
+        <PageHeader eyebrow="Överenskommelse" title="Gällande överenskommelse" />
+        <NoAgreement loading={isLoading} />
+      </>
+    );
+  }
+
+  const nameOf = (partyId: string) =>
+    household?.parties.find((p) => p.partyId === partyId)?.name ?? partyId;
 
   return (
     <>
@@ -55,21 +69,14 @@ function Current() {
         <dl className="grid gap-3 sm:grid-cols-2">
           {agreement.parties.map((party) => (
             <div key={party} className="rounded-md border border-hairline p-3">
-              <dt className="text-sm font-medium">{PARTY_LABELS[party] ?? party}</dt>
+              <dt className="text-sm font-medium">{nameOf(party)}</dt>
               <dd className="mt-1.5 grid gap-1 text-sm">
                 <Line label="Startenheter" value={fmtEnheter(agreement.startUnits[party])} />
                 <Line
                   label="Intern startandel"
                   value={fmtAndel(agreement.startUnits[party] / agreement.totalUnits)}
                 />
-                <Line
-                  label="Formell ägarandel"
-                  value={
-                    SEED_FORMAL_OWNERSHIP[party] == null
-                      ? "Fylls i separat"
-                      : fmtAndel(SEED_FORMAL_OWNERSHIP[party] as number)
-                  }
-                />
+                <Line label="Formell ägarandel" value="Fylls i separat" />
               </dd>
             </div>
           ))}

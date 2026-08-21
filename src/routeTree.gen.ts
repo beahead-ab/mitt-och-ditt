@@ -13,6 +13,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSimulatorRouteImport } from './routes/_authenticated/simulator'
+import { Route as InbjudanTokenRouteImport } from './routes/inbjudan.$token'
 import { Route as AuthenticatedForsaljningIndexRouteImport } from './routes/_authenticated/forsaljning.index'
 import { Route as AuthenticatedForsaljningSlutavrakningRouteImport } from './routes/_authenticated/forsaljning.slutavrakning'
 import { Route as AuthenticatedForsaljningVarderingarRouteImport } from './routes/_authenticated/forsaljning.varderingar'
@@ -47,6 +48,11 @@ const AuthenticatedSimulatorRoute = AuthenticatedSimulatorRouteImport.update({
   id: '/simulator',
   path: '/simulator',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const InbjudanTokenRoute = InbjudanTokenRouteImport.update({
+  id: '/inbjudan/$token',
+  path: '/inbjudan/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedForsaljningIndexRoute =
   AuthenticatedForsaljningIndexRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/inbjudan/$token': typeof InbjudanTokenRoute
   '/forsaljning/slutavrakning': typeof AuthenticatedForsaljningSlutavrakningRoute
   '/forsaljning/varderingar': typeof AuthenticatedForsaljningVarderingarRoute
   '/overenskommelse/kostnadsslag': typeof AuthenticatedOverenskommelseKostnadsslagRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/inbjudan/$token': typeof InbjudanTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/forsaljning/slutavrakning': typeof AuthenticatedForsaljningSlutavrakningRoute
   '/forsaljning/varderingar': typeof AuthenticatedForsaljningVarderingarRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/simulator': typeof AuthenticatedSimulatorRoute
+  '/inbjudan/$token': typeof InbjudanTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/forsaljning/slutavrakning': typeof AuthenticatedForsaljningSlutavrakningRoute
   '/_authenticated/forsaljning/varderingar': typeof AuthenticatedForsaljningVarderingarRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/simulator'
+    | '/inbjudan/$token'
     | '/forsaljning/slutavrakning'
     | '/forsaljning/varderingar'
     | '/overenskommelse/kostnadsslag'
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/simulator'
+    | '/inbjudan/$token'
     | '/'
     | '/forsaljning/slutavrakning'
     | '/forsaljning/varderingar'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/simulator'
+    | '/inbjudan/$token'
     | '/_authenticated/'
     | '/_authenticated/forsaljning/slutavrakning'
     | '/_authenticated/forsaljning/varderingar'
@@ -267,6 +279,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  InbjudanTokenRoute: typeof InbjudanTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/simulator'
       preLoaderRoute: typeof AuthenticatedSimulatorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/inbjudan/$token': {
+      id: '/inbjudan/$token'
+      path: '/inbjudan/$token'
+      fullPath: '/inbjudan/$token'
+      preLoaderRoute: typeof InbjudanTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/forsaljning/': {
       id: '/_authenticated/forsaljning/'
@@ -461,6 +481,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  InbjudanTokenRoute: InbjudanTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

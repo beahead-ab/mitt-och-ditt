@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { useHousehold } from "@/components/household-context";
+import { NoAgreement } from "@/components/no-agreement";
 import { StatusCard } from "@/components/status-card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,13 +27,24 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function Overview() {
   const { household } = useHousehold();
-  const { agreement, rules, transactions } = useHouseholdData();
+  const { agreement, rules, transactions, isLoading } = useHouseholdData();
 
-  const { result, endpoint } = useMemo(() => {
+  const computed = useMemo(() => {
+    if (!agreement) return null;
     const end = defaultEndpoint(agreement, rules, transactions);
     return { endpoint: end, result: run(agreement, rules, transactions, end) };
   }, [agreement, rules, transactions]);
 
+  if (!agreement || !computed) {
+    return (
+      <>
+        <PageHeader eyebrow="Läget nu" title={household?.propertyAddress ?? "Bostaden"} />
+        <NoAgreement loading={isLoading} />
+      </>
+    );
+  }
+
+  const { result, endpoint } = computed;
   const [a, b] = agreement.parties;
   const pending = pendingTransactions(transactions);
   const disputed = disputedTransactions(transactions);

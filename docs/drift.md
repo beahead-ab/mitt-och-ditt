@@ -57,6 +57,29 @@ npm test
 npm run build
 ```
 
+## 3b. Databasen
+
+```sh
+npm run db:migrate   # kör migreringarna i db/migrations
+npm run db:seed      # skapar hushållet och skriver ut inbjudningslänkar
+```
+
+Migreringarna körs i filnamnsordning, exakt en gång var, och varje fil i sin egen
+transaktion. Ett par användare behöver ingen migreringsmotor.
+
+Seed-skriptet är idempotent. Det skapar hushållet, avtalsversionen som **utkast**
+med startvärdena ur avtalets punkt 2 och grundklassificeringen ur punkt 7, samt en
+inbjudningslänk per part. Länkarna visas en enda gång och är giltiga i sju dagar.
+
+**Två databasroller används.** `mittochditt_owner` äger schemat och kör
+migreringar. Applikationen använder `mittochditt_app`, som lyder under
+radnivåsäkerheten och sätter `app.user_id` per transaktion. Utan den variabeln ser
+rollen ingenting alls – ett glömt anrop ger tomt resultat i stället för någon
+annans uppgifter.
+
+Testerna för radnivåsäkerhet kör mot en riktig Postgres, både lokalt och i CI.
+Sätt `TEST_DATABASE_URL` för att peka på en egen server.
+
 ## 4. Köra i container
 
 ```sh
@@ -129,6 +152,6 @@ exponeras inte utåt – nå den via `docker compose exec db psql -U mittochditt
 
 ## 8. Vad som återstår
 
-Etapp 2 lägger till Postgres-schemat med radnivåsäkerhet, inbjudningar och
-inloggning. Fram till dess kör appen i demoläge med exempeldata, och
-`db`-tjänsten i `compose.yaml` står redo men används inte.
+Etapp 3 bygger gränssnittet för att registrera, godkända och korrigera poster.
+Fram till dess kan underlaget läsas i appen men bara skrivas genom seed-skriptet
+och migreringarna.

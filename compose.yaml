@@ -14,7 +14,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
-      SESSION_SECRET: ${SESSION_SECRET:?sätt SESSION_SECRET}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     volumes:
       # Bilagor ligger utanför containern så att de överlever en omstart.
       - uploads:/data/uploads

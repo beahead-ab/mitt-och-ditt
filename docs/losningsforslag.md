@@ -305,12 +305,16 @@ Uppdragsbeskrivningens 26 tabeller är i allt väsentligt rätt. Jag föreslår 
 - `settlements` fryser hela motor-inputen + resultatet + protokoll-markdown (bilaga 3-strukturen) och låses när `settlement_acceptances` har båda parter. "Verifiera igen"-knappen kör om motorn på frysta indata och visar att resultatet är identiskt.
 - `audit_events` är append-only med **hash-kedja** (varje rad checksummar föregående) — billigt att bygga, gör loggen manipulationsevident, vilket passar ett bevisverktyg. Inga UPDATE/DELETE-rättigheter ens för ägaren; ekonomiska poster mjukraderas aldrig utan ersätts (3.2).
 
-### 5.5 Behörighet och säkerhet
+### 5.5 Behörighet och säkerhet — byggd och bevisad
 
-- Invite-only: konton skapas endast via inbjudan (Systemadmin). Ingen öppen registrering.
-- RLS på allt: `is_household_member(household_id)`-mönstret; alla tabeller bär `household_id`. Bilagor i privat bucket med sökvägen `household_id/…` och tidsbegränsade signerade URL:er för export.
-- Godkännanderegeln tvingas i databasen: acceptans-/godkännanderader kan bara skrivas med `user_id = auth.uid()`, statusövergångar räknas fram av databasfunktioner (security definer) — aldrig av klienten.
-- Service role endast i serverfunktioner; publishable key i klienten (Bilkollens mönster).
+Detta är nu implementerat och testat mot en riktig Postgres, inte bara beskrivet:
+
+- Invite-only: konton skapas endast via inbjudan. Ingen öppen registrering finns i något flöde.
+- Radnivåsäkerhet på varje tabell, byggd på `is_household_member()`. Applikationen använder en egen databasroll och sätter den inloggades identitet per transaktion; utan den ser rollen ingenting alls.
+- Godkännanderegeln tvingas i databasen: en godkännanderad måste bära den inloggades eget ID **och** den partsroll hen faktiskt har i hushållet. Båda vägarna att godkänna åt någon annan är stängda och testade.
+- En gällande version kan inte ändras eller raderas av någon roll, inte ens ägaren. Ett avgivet godkännande kan inte tas tillbaka i efterhand.
+- Aktivitetsloggen är append-only med hashkedja beräknad av databasen, så den som skriver kan inte förfalska den. `verify_audit_chain()` kontrollerar att kedjan är obruten.
+- Ägarrollen används på exakt en plats i applikationen: uppslaget av sessionen, som sker innan vi vet vem användaren är och därför inte kan filtreras på identitet.
 - Tidsstämplar i UTC (`timestamptz`), ekonomiska datum som `date`, presentation i svensk tid.
 - Inga personnummer (3.6); juridiska dokument endast i privat bucket, aldrig i loggar.
 
@@ -341,8 +345,8 @@ Varje etapp är körbar och granskningsbar innan nästa börjar.
 | Etapp | Innehåll | Klart när |
 |---|---|---|
 | **0. Grund** ✅ | Infrastrukturbeslut. Scaffold: TanStack Start, tokens, lint/typecheck/Vitest, Docker, CI. | Klart. Bygget, containern och alla sju sektioner är på plats. |
-| **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. 65 tester gröna, inklusive bilaga 1 exempel 1–10. |
-| **2. Backend-grund** | Supabase-schema + RLS + auth + invites + seed (Caesar/Felicia, grundklassificeringar, startvärden som utkast). | RLS-tester gröna; två testkonton ser bara sitt hushåll. |
+| **1. Motorn** ✅ | `src/lib/engine/` + golden tests + egenskapstester, helt utan backend. | Klart. Bilaga 1 exempel 1–10 gröna, plus egenskaper och kantfall. |
+| **2. Backend-grund** ✅ | Postgres-schema + radnivåsäkerhet + inloggning + inbjudningar + seed. | Klart. 21 RLS-tester mot riktig Postgres; hela flödet inbjudan → konto → inloggning → data verifierat i webbläsaren. |
 | **3. Överenskommelse + Transaktioner** | Sektionerna med registrering, godkännande/invändning, korrigeringar, bilagor, klassificeringar. | En post kan registreras, godkännas av båda och synas i historiken med full logg. |
 | **4. Översikt + Simulator** | Motorn kopplas till UI; prognosläge, scenarier, diagram, "Vad betyder detta?". | Översikten visar korrekt läge för seedade data; simulatorn matchar arkets exempel. |
 | **5. Import/export** | V8-importflödet med rapport; exporterna i 5.7. | Riktiga arket importeras med korrekt förhandsgranskning och ±1 kr-avstämning. |
@@ -364,8 +368,8 @@ Samtliga frågor i den ursprungliga versionen av det här dokumentet är besvara
 - Container-paketering: Dockerfile, `compose.yaml` med Postgres och valfri Caddy-TLS, säkerhetskopieringsskript, CI som verifierar hela kedjan och att containern startar.
 - `docs/drift.md` med infrastrukturval, kostnader och uppsättning på DigitalOcean.
 
-**Återstår enligt byggordningen:** etapp 2 (Postgres-schema med radnivåsäkerhet, inbjudningar, inloggning), därefter etapp 3–7.
+**Återstår enligt byggordningen:** etapp 3 (registrering, godkännande och korrigering i gränssnittet), därefter etapp 4–7.
 
 **Noterat under bygget:** avtalets bilaga 1, exempel 8, anger det linjära mellanvärdet till 4 900 000 kr efter två år av fem. Avtalets punkt 8.2 föreskriver dagräkning, och eftersom perioden innehåller ett skottår blir det exakta värdet 4 900 328,59 kr. Motorn följer formeln i punkt 8.2, alltså den bindande regeln, och skillnaden är dokumenterad i testsviten. Värt att nämna för den juridiska slutgranskningen – exemplet i bilagan är avrundat, inte fel.
 
-*Etapp 0 och 1 är levererade: fristående scaffold utan Lovable, beräkningsmotorn med 65 gröna tester, container-paketering och driftdokumentation. Nästa steg är etapp 2 – Postgres-schemat med radnivåsäkerhet, inbjudningar och inloggning.*
+*Etapp 0–2 är levererade: fristående scaffold utan Lovable, beräkningsmotorn, container-paketering, kalkylarksgränssnittet med versionshistorik, samt Postgres med radnivåsäkerhet, inbjudningar och inloggning. Nästa steg är etapp 3 – att registrera, godkänna och korrigera poster i gränssnittet.*
