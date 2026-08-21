@@ -16,8 +16,9 @@ type HouseholdContextValue = {
 const HouseholdContext = createContext<HouseholdContextValue>({ household: null, isAdmin: false });
 
 /**
- * Hushållskontexten motsvarar Bilkollens bilkontext. I v1 har ett konto normalt
- * exakt ett hushåll; väljaren i toppfältet visas först när fler finns (etapp 2+).
+ * Hushållskontexten motsvarar Bilkollens bilkontext. Ett konto har normalt
+ * exakt ett hushåll; väljaren i toppfältet visas först när fler finns.
+ * Riktig datahämtning kopplas in i etapp 2.
  */
 export function HouseholdProvider({ children }: { userId: string; children: ReactNode }) {
   const value: HouseholdContextValue = isDemo
@@ -29,7 +30,7 @@ export function HouseholdProvider({ children }: { userId: string; children: Reac
         },
         isAdmin: true,
       }
-    : { household: null, isAdmin: false }; // Fylls på i etapp 2 (query mot households via RLS).
+    : { household: null, isAdmin: false };
 
   return <HouseholdContext.Provider value={value}>{children}</HouseholdContext.Provider>;
 }

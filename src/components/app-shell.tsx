@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Button } from "@/components/ui/button";
 import { useHousehold } from "@/components/household-context";
 import { SectionTabs } from "@/components/section-tabs";
-import { supabase } from "@/integrations/supabase/client";
+import { signOut as endSession } from "@/lib/auth";
 import { isDemo } from "@/lib/demo";
 
 type NavItem = { to: string; label: string; adminOnly?: boolean };
@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [open]);
 
   async function signOut() {
-    if (!isDemo) await supabase.auth.signOut();
+    await endSession();
     navigate({ to: "/auth", search: { next: undefined } });
   }
 

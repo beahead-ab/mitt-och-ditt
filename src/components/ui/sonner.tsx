@@ -8,8 +8,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       style={
         {
-          "--offset":
-            "calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 4.25rem)",
+          "--offset": "calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 4.25rem)",
         } as React.CSSProperties
       }
       toastOptions={{

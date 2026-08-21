@@ -29,13 +29,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
 
     return (
       <div className={cn("inline-flex", className)}>
-        <input
-          type="file"
-          className="sr-only"
-          ref={inputRef}
-          disabled={disabled}
-          {...props}
-        />
+        <input type="file" className="sr-only" ref={inputRef} disabled={disabled} {...props} />
         <Button
           type="button"
           variant={buttonVariant}
