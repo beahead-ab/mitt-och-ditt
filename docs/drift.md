@@ -277,12 +277,47 @@ något.
 
 ### 5.8 Uppdatera senare
 
+Samma uppdelning som vid uppsättningen, av samma skäl: bygget ska få misslyckas
+utan att ta tjänsten med sig. Kör inte om bygget i samma kommando som starten –
+`up -d --build` river den gamla containern, så ett bygge som dödas av
+minnesbrist lämnar tjänsten nere i stället för att lämna den orörd.
+
+**Steg 1 – hämta koden och bygg. Tjänsten fortsätter köra på den gamla imagen.**
+
 ```sh
-cd /srv/mitt-och-ditt && git pull && docker compose --profile tls up -d --build
-docker compose exec app node .output/scripts/migrate.mjs
+cd /srv/mitt-och-ditt && git pull
+docker compose build
 ```
 
+Går bygget inte igenom står den gamla versionen kvar och svarar som förut.
+Rätta felet och bygg om; ingenting är sönder under tiden.
+
+**Steg 2 – kör migreringarna, fortfarande på den gamla koden.**
+
+```sh
+docker compose run --rm app node .output/scripts/migrate.mjs
+```
+
+`run --rm` startar en engångscontainer ur den nyss byggda imagen, kör
+migreringarna och försvinner. Den som betjänar användarna rörs inte.
+
+Ordningen är avsiktlig. Migreringarna ska ligga före bytet av kod, inte efter:
+ny kod förutsätter alltid det nya schemat, medan gammal kod nästan alltid tål
+att en kolumn eller tabell tillkommit. Görs det tvärtom finns ett glapp där den
+nya koden möter det gamla schemat.
+
 Migreringarna körs i filnamnsordning, exakt en gång var.
+
+**Steg 3 – byt in den nya versionen och kontrollera.**
+
+```sh
+docker compose --profile tls up -d
+docker compose ps
+curl -sI https://mittochditt.goodstuff.se/auth | head -1
+```
+
+Inget `--build` här – imagen är redan byggd i steg 1. Certifikatet ligger kvar
+i `caddy_data` och hämtas inte om.
 
 ### 5.9 Säkerhetskopiering
 
