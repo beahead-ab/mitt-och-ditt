@@ -95,7 +95,6 @@ docker run --rm -p 3000:3000 mitt-och-ditt:demo
 
 # Skarpt läge med databas
 export POSTGRES_PASSWORD="$(openssl rand -base64 32)"
-export SESSION_SECRET="$(openssl rand -base64 48)"
 docker compose up -d --build
 ```
 
@@ -165,8 +164,18 @@ fel värde.
 
 ### 5.5 Starta
 
-Bygget är det enda som tar i på en 2 GB-maskin. Har den ingen växlingsfil, lägg
-in en först – annars kan bygget dödas av minnesbrist mitt i:
+Starta i tre steg i stället för ett. Skälet är Let's Encrypt: de tillåter fem
+misslyckade valideringar per timme och värdnamn. Görs bygget, starten och
+certifikathämtningen i ett svep kan ett dödat bygge eller en app som inte går
+igång leda till att Caddy ändå försöker – och då är försöken slut innan felet
+ens är hittat. Uppdelningen kostar två extra kommandon och håller de tre felen
+isär.
+
+**Steg 1 – bygg imagen, starta ingenting.**
+
+Bygget är det enda som tar i på en liten maskin; toppen ligger strax över en
+gigabyte. Har maskinen ingen växlingsfil, lägg in en först, annars kan bygget
+dödas av minnesbrist mitt i:
 
 ```sh
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
@@ -174,11 +183,62 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
 ```sh
-docker compose --profile tls up -d --build
+docker compose build
+```
+
+På en maskin med 1 GB swappar bygget och tar flera minuter. Dödas det ändå
+finns tre vägar, i stigande ordning av besvär:
+
+1. Större växlingsfil – 4 GB i stället för 2.
+2. Bygg någon annanstans och flytta den färdiga imagen:
+   `docker save mitt-och-ditt:latest | ssh root@<ip> docker load`.
+3. Skala tillfälligt upp maskinen, bygg, och skala tillbaka. Hos DigitalOcean
+   är ändring av **enbart processor och minne** reversibel; det är ändring av
+   disken som inte går att ångra.
+
+Att sänka Nodes heap-tak vore ett fjärde alternativ, men det kräver en ändring
+i `Dockerfile`: en miljövariabel satt på värden följer inte med in i bygget.
+
+Det är bara bygget som är trångt. I drift ligger appen på omkring 150 MB,
+databasen på 100 och Caddy på 20.
+
+**Steg 2 – provstarta utan HTTPS.**
+
+```sh
+docker compose up -d
+curl -sI http://127.0.0.1:3000/auth | head -1
+docker compose ps
+```
+
+Utan `--profile tls` startar bara appen och databasen. Svaret ska vara
+`HTTP/1.1 200 OK`. Anropet fungerar bara från maskinen själv, eftersom porten
+är bunden till loopback – det är avsiktligt, se `compose.yaml`.
+
+Går det inte igång, felsök här. Ingenting av det rör certifikat, och inga
+försök förbrukas.
+
+**Steg 3 – släpp fram Caddy.**
+
+Kontrollera domänen en sista gång innan, både utifrån och från maskinen:
+
+```sh
+dig +short mittochditt.goodstuff.se @1.1.1.1
+dig +short mittochditt.goodstuff.se
+```
+
+Båda ska svara med maskinens IP, och ingenting annat. Ligger domänen bakom en
+proxy som Cloudflare måste den stå i genomsläppsläge – *DNS only*, grå
+molnikon. Med proxyn på träffar utmaningen proxyn i stället för maskinen, och
+är "Always Use HTTPS" påslaget skickas den vidare till https innan Caddy har
+något certifikat att svara med. Kontrollera också att ingen AAAA-post finns:
+finns den föredras IPv6, och svarar inte maskinen där misslyckas valideringen.
+
+```sh
+docker compose --profile tls up -d
 ```
 
 Caddy hämtar certifikatet automatiskt. Efter någon minut svarar tjänsten på
-https. Kontrollera:
+https:
 
 ```sh
 curl -sI https://mittochditt.goodstuff.se/auth | head -1
