@@ -1,9 +1,14 @@
 # Bygg-steget installerar alla beroenden och producerar Nitros node-server.
 FROM node:22-alpine AS build
 WORKDIR /app
-ENV NODE_ENV=development
+# NODE_ENV måste vara production redan vid bygget. Vite avgör utifrån den om
+# koden är för utveckling, och med development bakas Reacts jsxDEV in - en
+# funktion som inte finns i produktionsbygget av React. Servern startar då,
+# men varje sidrendering svarar 500. Utvecklingsberoendena behövs ändå för att
+# kunna bygga, och begärs därför uttryckligen.
+ENV NODE_ENV=production
 COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --include=dev --no-audit --no-fund
 COPY . .
 # VITE_-variabler bakas in i klientbunten och måste därför sättas vid bygget.
 ARG VITE_DEMO=""
