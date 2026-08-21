@@ -1,0 +1,63 @@
+# Kör hela Mitt & Ditt lokalt eller på en server. Två tjänster, inget mer.
+services:
+  app:
+    build:
+      context: .
+      args:
+        # VITE_-variabler bakas in vid bygget. Sätt VITE_DEMO=1 för att köra
+        # gränssnittet med exempeldata utan databas.
+        VITE_DEMO: "${VITE_DEMO:-}"
+    image: mitt-och-ditt:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
+      SESSION_SECRET: ${SESSION_SECRET:?sätt SESSION_SECRET}
+    volumes:
+      # Bilagor ligger utanför containern så att de överlever en omstart.
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mittochditt
+      POSTGRES_USER: mittochditt
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mittochditt -d mittochditt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Databasen exponeras inte utåt. Nå den via `docker compose exec db psql`.
+
+  # TLS och domän. Startas med: docker compose --profile tls up -d
+  # Caddy skaffar och förnyar certifikat automatiskt.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?sätt APP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
