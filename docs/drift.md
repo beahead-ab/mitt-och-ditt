@@ -69,7 +69,9 @@ Skripten byggs också till `.output/scripts/*.mjs`, utan beroenden, så att de
 kan köras i containern där varken källkod eller `node_modules` finns.
 
 Migreringarna körs i filnamnsordning, exakt en gång var, och varje fil i sin egen
-transaktion. Ett par användare behöver ingen migreringsmotor.
+transaktion. Ett par användare behöver ingen migreringsmotor. De tål också att
+köras samtidigt från flera containrar: applikationsrollen hör till hela
+databasservern, så den skapas med ett fel som sväljs om någon annan hann före.
 
 Seed-skriptet är idempotent. Det skapar hushållet, avtalsversionen som **utkast**
 med startvärdena ur avtalets punkt 2 och grundklassificeringen ur punkt 7, samt en
