@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Lock, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState } from "react";
@@ -22,7 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { useMyParty } from "@/hooks/use-my-party";
 import { today } from "@/lib/calculation";
-import { isDemo } from "@/lib/demo";
+import { DEMO_VALUATIONS, isDemo } from "@/lib/demo";
+import { valuationOutcome } from "@/lib/engine/exit";
 import { kr, toKronor, type EngineResult } from "@/lib/engine";
 import {
   createSettlementFn,
@@ -110,30 +110,21 @@ function SettlementPage() {
     onError: () => toast.error("Kunde inte registrera godkännandet."),
   });
 
-  if (isDemo) {
-    return (
-      <>
-        <PageHeader eyebrow="Försäljning & utköp" title="Slutavräkning" />
+  const settlements = query.data?.settlements ?? [];
+  const outcome = isDemo ? valuationOutcome(DEMO_VALUATIONS) : (query.data?.outcome ?? null);
+
+  return (
+    <>
+      {isDemo && (
         <p className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm">
           <span className="inline-flex rounded-full border border-hairline bg-card px-2.5 py-0.5 text-xs text-muted-foreground">
             Exempel
           </span>
-          Så här ser en avräkning ut innan den skapas. Att låsa den är avstängt i demoläget.
+          Formuläret går att fylla i och läsa. Att skapa och låsa avräkningen är avstängt i
+          demoläget, eftersom det skriver till databasen.
         </p>
-        <DemoNotice vad="Slutavräkningen fryser beräkningen: indata, resultat och en kontrollsumma sparas som de var. Båda parter godkänner, och därefter kan ingen roll ändra den – inte heller den som administrerar tjänsten.">
-          Protokollet följer avtalets bilaga 3 och går att räkna om ur samma indata när som helst.
-          Ger omräkningen ett annat resultat syns det, i stället för att jämnas ut. Underlaget som
-          fryses hämtas om från databasen i samma stund – aldrig från det klienten skickat med.
-        </DemoNotice>
-      </>
-    );
-  }
+      )}
 
-  const settlements = query.data?.settlements ?? [];
-  const outcome = query.data?.outcome ?? null;
-
-  return (
-    <>
       <PageHeader
         eyebrow="Försäljning & utköp"
         title="Slutavräkning"
@@ -241,7 +232,7 @@ function SettlementPage() {
             />
           </div>
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={isDemo || create.isPending}>
               {create.isPending ? "Beräknar …" : "Skapa och frys slutavräkningen"}
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
