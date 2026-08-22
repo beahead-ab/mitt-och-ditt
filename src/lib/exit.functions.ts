@@ -169,3 +169,48 @@ export const getSettlementResult = createServerFn({ method: "GET" })
       return rows[0] ? JSON.stringify(rows[0].frozen_result) : null;
     });
   });
+
+/**
+ * Källdagarna för fristerna vid dödsfall (avtal 22).
+ *
+ * Bara dagarna registreras. Fristerna - trettio dagar från
+ * bouppteckningsförrättningen, fyra månader från fastställt värde - räknas
+ * fram ur dem, så att en lagrad förfallodag aldrig kan sluta stämma med det
+ * den räknats från.
+ */
+export const setDeathDatesFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        householdId: z.string().uuid(),
+        estateInventoryOn: isoDate.nullable().optional(),
+        takeoverDeclaredOn: isoDate.nullable().optional(),
+        valueEstablishedOn: isoDate.nullable().optional(),
+        financingArrangedOn: isoDate.nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { userId } = await actor(data.householdId);
+    const { asUser } = await import("@/lib/db/client.server");
+
+    return asUser(userId, async (sql) => {
+      const rader = await sql<{ id: string }[]>`
+        update exit_processes
+           set estate_inventory_on   = coalesce(${data.estateInventoryOn ?? null}, estate_inventory_on),
+               takeover_declared_on  = coalesce(${data.takeoverDeclaredOn ?? null}, takeover_declared_on),
+               value_established_on  = coalesce(${data.valueEstablishedOn ?? null}, value_established_on),
+               financing_arranged_on = coalesce(${data.financingArrangedOn ?? null}, financing_arranged_on)
+         where household_id = ${data.householdId} and status = 'pagaende'
+        returning id
+      `;
+      if (rader.length === 0) throw new Error("Det finns ingen pågående process att fylla i.");
+
+      await sql`
+        insert into audit_events (household_id, event_type, entity_type, entity_id, actor_id)
+        values (${data.householdId}, 'exit.death_dates_set', 'exit_process', ${rader[0].id},
+                ${userId})
+      `;
+      return { ok: true as const };
+    });
+  });

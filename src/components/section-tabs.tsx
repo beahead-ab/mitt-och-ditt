@@ -12,6 +12,7 @@ export const SECTIONS: Section[] = [
       { to: "/transaktioner/vantar", label: "Väntar på godkännande" },
       { to: "/transaktioner/historik", label: "Historik" },
       { to: "/transaktioner/avstamning", label: "Avstämning" },
+      { to: "/transaktioner/regress", label: "Regresskrav" },
     ],
   },
   {
@@ -38,6 +39,7 @@ export const SECTIONS: Section[] = [
       { to: "/system/anvandare", label: "Användare" },
       { to: "/system/hushall", label: "Hushåll" },
       { to: "/system/inbjudningar", label: "Inbjudningar" },
+      { to: "/system/rantor", label: "Referensränta" },
       { to: "/system/mail", label: "Mailstatus" },
       { to: "/system/revision", label: "Revisionsunderlag" },
     ],

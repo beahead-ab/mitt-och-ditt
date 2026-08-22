@@ -532,6 +532,27 @@ Bara strängen `true` öppnar. `1`, `ja` och `yes` gör det inte, med flit: det
 ska inte gå att öppna tjänsten av misstag genom att skriva något som ser ut
 som ett ja.
 
+### 5.15 Referensräntan
+
+Dröjsmålsränta på en regressfordran räknas enligt 6 § räntelagen:
+Riksbankens referensränta plus åtta procentenheter. Referensräntan är en
+offentlig uppgift som ändras normalt 1 januari och 1 juli, och den måste
+matas in – tjänsten hämtar den inte själv och gissar den aldrig.
+
+Tabellen börjar tom med flit. En gissad sats som ser riktig ut vore värre än
+ingen alls: räntan går att räkna men blir fel, och felet syns inte. Saknas
+satsen för en period vägrar beräkningen i stället för att anta något, och
+gränssnittet säger vad som saknas.
+
+1. Logga in som administratör och gå till Systemadmin → Referensränta.
+2. Skriv av satserna från Riksbanken, en rad per period, med den dag varje
+   sats börjar gälla.
+3. Fyll i från och med den tidigaste dag ni kan behöva räkna på – en fordran
+   som är äldre än den första satsen går inte att räkna ränta på.
+
+Sätt en påminnelse 1 januari och 1 juli. En sats som saknas märks först när
+någon behöver räkna, och då är det oftast bråttom.
+
 ## 6. Flytta tjänsten någon annanstans
 
 1. `deploy/backup.sh` på den gamla servern.

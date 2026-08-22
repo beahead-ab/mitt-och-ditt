@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app-shell";
+import { Dodsfallsfrister } from "@/components/dodsfallsfrister";
 import { useHousehold } from "@/components/household-context";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -179,6 +180,10 @@ function ExitProcessPage() {
               </Button>
             )}
           </section>
+
+          {process.kind === "dodsfall" && (
+            <Dodsfallsfrister householdId={household!.id} dagar={process.dodsfall} idag={now} />
+          )}
 
           <section className="tile-surface p-5">
             <p className="eyebrow mb-1">Checklista inför genomfört utköp</p>

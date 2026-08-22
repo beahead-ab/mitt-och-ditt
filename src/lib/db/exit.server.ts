@@ -27,6 +27,17 @@ export type ExitProcess = {
   note: string | null;
   completedAt: string | null;
   deadlines: { takeoverNoticeBy: string; saleOrBuyoutBy: string };
+  /**
+   * Källdagarna för avtalets punkt 22. Bara dagarna lagras; fristerna räknas
+   * fram, så en lagrad förfallodag aldrig kan sluta stämma med det den
+   * räknats från.
+   */
+  dodsfall: {
+    estateInventoryOn: string | null;
+    takeoverDeclaredOn: string | null;
+    valueEstablishedOn: string | null;
+    financingArrangedOn: string | null;
+  };
 };
 
 export type Valuation = {
@@ -74,10 +85,16 @@ export async function currentExit(
         checklist: Record<string, boolean>;
         note: string | null;
         completed_at: Date | null;
+        estate_inventory_on: string | null;
+        takeover_declared_on: string | null;
+        value_established_on: string | null;
+        financing_arranged_on: string | null;
       }[]
     >`
       select id, process_date, kind, status, takeover_party_id, takeover_notified_at,
-             checklist, note, completed_at
+             checklist, note, completed_at,
+             estate_inventory_on, takeover_declared_on, value_established_on,
+             financing_arranged_on
       from exit_processes where household_id = ${householdId}
       order by process_date desc limit 1
     `;
@@ -98,6 +115,14 @@ export async function currentExit(
             const { takeoverNoticeBy, saleOrBuyoutBy } = exitDeadlines(asDate(row.process_date));
             return { takeoverNoticeBy, saleOrBuyoutBy };
           })(),
+          dodsfall: {
+            estateInventoryOn: row.estate_inventory_on ? asDate(row.estate_inventory_on) : null,
+            takeoverDeclaredOn: row.takeover_declared_on ? asDate(row.takeover_declared_on) : null,
+            valueEstablishedOn: row.value_established_on ? asDate(row.value_established_on) : null,
+            financingArrangedOn: row.financing_arranged_on
+              ? asDate(row.financing_arranged_on)
+              : null,
+          },
         }
       : null;
 

@@ -33,10 +33,12 @@ import { Route as AuthenticatedSystemAnvandareRouteImport } from './routes/_auth
 import { Route as AuthenticatedSystemHushallRouteImport } from './routes/_authenticated/system.hushall'
 import { Route as AuthenticatedSystemInbjudningarRouteImport } from './routes/_authenticated/system.inbjudningar'
 import { Route as AuthenticatedSystemMailRouteImport } from './routes/_authenticated/system.mail'
+import { Route as AuthenticatedSystemRantorRouteImport } from './routes/_authenticated/system.rantor'
 import { Route as AuthenticatedSystemRevisionRouteImport } from './routes/_authenticated/system.revision'
 import { Route as AuthenticatedTransaktionerIndexRouteImport } from './routes/_authenticated/transaktioner.index'
 import { Route as AuthenticatedTransaktionerAvstamningRouteImport } from './routes/_authenticated/transaktioner.avstamning'
 import { Route as AuthenticatedTransaktionerHistorikRouteImport } from './routes/_authenticated/transaktioner.historik'
+import { Route as AuthenticatedTransaktionerRegressRouteImport } from './routes/_authenticated/transaktioner.regress'
 import { Route as AuthenticatedTransaktionerVantarRouteImport } from './routes/_authenticated/transaktioner.vantar'
 import { Route as ApiBilagaIndexRouteImport } from './routes/api/bilaga.index'
 import { Route as ApiBilagaIdRouteImport } from './routes/api/bilaga.$id'
@@ -171,6 +173,12 @@ const AuthenticatedSystemMailRoute = AuthenticatedSystemMailRouteImport.update({
   path: '/system/mail',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSystemRantorRoute =
+  AuthenticatedSystemRantorRouteImport.update({
+    id: '/system/rantor',
+    path: '/system/rantor',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemRevisionRoute =
   AuthenticatedSystemRevisionRouteImport.update({
     id: '/system/revision',
@@ -193,6 +201,12 @@ const AuthenticatedTransaktionerHistorikRoute =
   AuthenticatedTransaktionerHistorikRouteImport.update({
     id: '/transaktioner/historik',
     path: '/transaktioner/historik',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTransaktionerRegressRoute =
+  AuthenticatedTransaktionerRegressRouteImport.update({
+    id: '/transaktioner/regress',
+    path: '/transaktioner/regress',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedTransaktionerVantarRoute =
@@ -233,9 +247,11 @@ export interface FileRoutesByFullPath {
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/system/mail': typeof AuthenticatedSystemMailRoute
+  '/system/rantor': typeof AuthenticatedSystemRantorRoute
   '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/avstamning': typeof AuthenticatedTransaktionerAvstamningRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
+  '/transaktioner/regress': typeof AuthenticatedTransaktionerRegressRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/forsaljning/': typeof AuthenticatedForsaljningIndexRoute
@@ -265,9 +281,11 @@ export interface FileRoutesByTo {
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/system/mail': typeof AuthenticatedSystemMailRoute
+  '/system/rantor': typeof AuthenticatedSystemRantorRoute
   '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/avstamning': typeof AuthenticatedTransaktionerAvstamningRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
+  '/transaktioner/regress': typeof AuthenticatedTransaktionerRegressRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/forsaljning': typeof AuthenticatedForsaljningIndexRoute
@@ -299,9 +317,11 @@ export interface FileRoutesById {
   '/_authenticated/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/_authenticated/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
   '/_authenticated/system/mail': typeof AuthenticatedSystemMailRoute
+  '/_authenticated/system/rantor': typeof AuthenticatedSystemRantorRoute
   '/_authenticated/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/_authenticated/transaktioner/avstamning': typeof AuthenticatedTransaktionerAvstamningRoute
   '/_authenticated/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
+  '/_authenticated/transaktioner/regress': typeof AuthenticatedTransaktionerRegressRoute
   '/_authenticated/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
   '/api/bilaga/$id': typeof ApiBilagaIdRoute
   '/_authenticated/forsaljning/': typeof AuthenticatedForsaljningIndexRoute
@@ -333,9 +353,11 @@ export interface FileRouteTypes {
     | '/system/hushall'
     | '/system/inbjudningar'
     | '/system/mail'
+    | '/system/rantor'
     | '/system/revision'
     | '/transaktioner/avstamning'
     | '/transaktioner/historik'
+    | '/transaktioner/regress'
     | '/transaktioner/vantar'
     | '/api/bilaga/$id'
     | '/forsaljning/'
@@ -365,9 +387,11 @@ export interface FileRouteTypes {
     | '/system/hushall'
     | '/system/inbjudningar'
     | '/system/mail'
+    | '/system/rantor'
     | '/system/revision'
     | '/transaktioner/avstamning'
     | '/transaktioner/historik'
+    | '/transaktioner/regress'
     | '/transaktioner/vantar'
     | '/api/bilaga/$id'
     | '/forsaljning'
@@ -398,9 +422,11 @@ export interface FileRouteTypes {
     | '/_authenticated/system/hushall'
     | '/_authenticated/system/inbjudningar'
     | '/_authenticated/system/mail'
+    | '/_authenticated/system/rantor'
     | '/_authenticated/system/revision'
     | '/_authenticated/transaktioner/avstamning'
     | '/_authenticated/transaktioner/historik'
+    | '/_authenticated/transaktioner/regress'
     | '/_authenticated/transaktioner/vantar'
     | '/api/bilaga/$id'
     | '/_authenticated/forsaljning/'
@@ -594,6 +620,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemMailRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/rantor': {
+      id: '/_authenticated/system/rantor'
+      path: '/system/rantor'
+      fullPath: '/system/rantor'
+      preLoaderRoute: typeof AuthenticatedSystemRantorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system/revision': {
       id: '/_authenticated/system/revision'
       path: '/system/revision'
@@ -620,6 +653,13 @@ declare module '@tanstack/react-router' {
       path: '/transaktioner/historik'
       fullPath: '/transaktioner/historik'
       preLoaderRoute: typeof AuthenticatedTransaktionerHistorikRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/transaktioner/regress': {
+      id: '/_authenticated/transaktioner/regress'
+      path: '/transaktioner/regress'
+      fullPath: '/transaktioner/regress'
+      preLoaderRoute: typeof AuthenticatedTransaktionerRegressRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/transaktioner/vantar': {
@@ -659,9 +699,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemHushallRoute: typeof AuthenticatedSystemHushallRoute
   AuthenticatedSystemInbjudningarRoute: typeof AuthenticatedSystemInbjudningarRoute
   AuthenticatedSystemMailRoute: typeof AuthenticatedSystemMailRoute
+  AuthenticatedSystemRantorRoute: typeof AuthenticatedSystemRantorRoute
   AuthenticatedSystemRevisionRoute: typeof AuthenticatedSystemRevisionRoute
   AuthenticatedTransaktionerAvstamningRoute: typeof AuthenticatedTransaktionerAvstamningRoute
   AuthenticatedTransaktionerHistorikRoute: typeof AuthenticatedTransaktionerHistorikRoute
+  AuthenticatedTransaktionerRegressRoute: typeof AuthenticatedTransaktionerRegressRoute
   AuthenticatedTransaktionerVantarRoute: typeof AuthenticatedTransaktionerVantarRoute
   AuthenticatedForsaljningIndexRoute: typeof AuthenticatedForsaljningIndexRoute
   AuthenticatedKontoIndexRoute: typeof AuthenticatedKontoIndexRoute
@@ -688,11 +730,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemHushallRoute: AuthenticatedSystemHushallRoute,
   AuthenticatedSystemInbjudningarRoute: AuthenticatedSystemInbjudningarRoute,
   AuthenticatedSystemMailRoute: AuthenticatedSystemMailRoute,
+  AuthenticatedSystemRantorRoute: AuthenticatedSystemRantorRoute,
   AuthenticatedSystemRevisionRoute: AuthenticatedSystemRevisionRoute,
   AuthenticatedTransaktionerAvstamningRoute:
     AuthenticatedTransaktionerAvstamningRoute,
   AuthenticatedTransaktionerHistorikRoute:
     AuthenticatedTransaktionerHistorikRoute,
+  AuthenticatedTransaktionerRegressRoute:
+    AuthenticatedTransaktionerRegressRoute,
   AuthenticatedTransaktionerVantarRoute: AuthenticatedTransaktionerVantarRoute,
   AuthenticatedForsaljningIndexRoute: AuthenticatedForsaljningIndexRoute,
   AuthenticatedKontoIndexRoute: AuthenticatedKontoIndexRoute,
