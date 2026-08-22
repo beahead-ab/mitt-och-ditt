@@ -7,8 +7,8 @@ import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { ExportMenu } from "@/components/export-menu";
 import { useHousehold, usePartyName } from "@/components/household-context";
-import { NoAgreement } from "@/components/no-agreement";
 import { NoHousehold } from "@/components/no-household";
+import { Uppstart } from "@/components/uppstart";
 import { Räknare, StatusCard } from "@/components/status-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,13 +92,11 @@ function Overview() {
     );
   }
 
+  // Utan gällande överenskommelse *är* översikten uppstartslistan. Att visa
+  // ett tomt läge vore att svara på fel fråga: paret vet redan att inget är
+  // ifyllt, de vill veta vad som är kvar och vems tur det är.
   if (!agreement || !computed) {
-    return (
-      <>
-        <PageHeader eyebrow="Läget nu" title={household?.propertyAddress ?? "Bostaden"} />
-        <NoAgreement loading={isLoading} />
-      </>
-    );
+    return <Uppstart loading={isLoading} />;
   }
 
   const { result, endpoint } = computed;

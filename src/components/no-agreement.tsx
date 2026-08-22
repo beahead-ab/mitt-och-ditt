@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-
 /**
- * Visas innan hushållet har en gällande överenskommelse. Utan startvärden
- * finns ingenting att räkna på, och att visa nollor vore missvisande.
+ * Visas på sektionssidorna innan hushållet har en gällande överenskommelse.
+ *
+ * Medvetet tunn. Uppstarten hör hemma på ett ställe - översikten, där hela
+ * listan står - och att upprepa samma stora tomma kort på fem sidor gjorde
+ * tjänsten till en rad tomma rum utan att säga vad som faktiskt saknades.
  */
 export function NoAgreement({ loading }: { loading?: boolean }) {
   if (loading) {
@@ -15,15 +16,12 @@ export function NoAgreement({ loading }: { loading?: boolean }) {
     );
   }
   return (
-    <div className="tile-surface p-10 text-center">
-      <p className="text-sm font-medium">Ingen gällande överenskommelse än</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Startdag, startvärde och kapitalinsatser behöver fyllas i och godkännas av båda parter innan
-        något kan beräknas.
-      </p>
-      <Button asChild variant="outline" size="sm" className="mt-4">
-        <Link to="/overenskommelse">Till överenskommelsen</Link>
-      </Button>
+    <div className="rounded-md border border-hairline bg-secondary/60 p-4 text-sm leading-relaxed">
+      Ingen överenskommelse gäller än, så det finns ingenting att räkna på här.{" "}
+      <Link to="/" className="text-primary underline underline-offset-4">
+        Se vad som är kvar i uppstarten
+      </Link>
+      .
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { useMyParty } from "@/hooks/use-my-party";
-import { pendingTransactions } from "@/lib/calculation";
+import { awaitingMyDecision } from "@/lib/calculation";
 import type { Transaction } from "@/lib/engine";
 
 export type MyTurnItem = {
@@ -27,20 +27,10 @@ export function useMyTurn(): { items: MyTurnItem[]; count: number } {
   const myPartyId = useMyParty();
 
   return useMemo(() => {
-    if (!myPartyId) return { items: [], count: 0 };
-
-    const items = pendingTransactions(transactions).flatMap((transaction) => {
-      const versions = revisions.get(transaction.id) ?? [];
-      const latest = versions[versions.length - 1];
-      const registeredByPartyId = latest?.authorId ?? "";
-      const iHaveDecided = Boolean(latest?.approvedBy?.[myPartyId]);
-
-      // Den som registrerade posten har godkänt den i samma steg, och den som
-      // redan tagit ställning väntar inte på sig själv.
-      if (registeredByPartyId === myPartyId || iHaveDecided) return [];
-      return [{ transaction, registeredByPartyId, iHaveDecided }];
-    });
-
+    const items = awaitingMyDecision(transactions, revisions, myPartyId).map((item) => ({
+      ...item,
+      iHaveDecided: false,
+    }));
     return { items, count: items.length };
   }, [transactions, revisions, myPartyId]);
 }

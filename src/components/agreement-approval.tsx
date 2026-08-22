@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { Explain, TERMS } from "@/components/explain";
 import { useHousehold } from "@/components/household-context";
 import { Button } from "@/components/ui/button";
 import { pendingAgreement } from "@/lib/agreement.functions";
@@ -10,9 +11,13 @@ import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
 import { approveDocumentFn } from "@/lib/transactions.functions";
 
 /**
- * Avtalsversionen börjar gälla först när båda parter godkänt den. Fram till
- * dess finns ingenting att räkna på, så det här är första steget för ett nytt
- * hushåll.
+ * Granska och godkänn startuppgifterna.
+ *
+ * Kortet visade tidigare startvärde, lån, enheter och en kontrollsumma - allt
+ * riktigt, men inte det man behöver för att kunna säga ja. Innebörden av det
+ * man godkänner är "det här ger dig 39,1304 % av enheterna", och den siffran
+ * stod ingenstans. Nu står den överst och kontrollsumman längst ner, där ett
+ * bevis hör hemma.
  */
 export function AgreementApproval() {
   const { household } = useHousehold();
@@ -44,20 +49,47 @@ export function AgreementApproval() {
   if (!draft || !household) return null;
 
   const names = Object.fromEntries(household.parties.map((p) => [p.partyId, p.name]));
-  const iHaveApproved = draft.myPartyId ? draft.approvedBy.includes(draft.myPartyId) : false;
+  const mig = draft.myPartyId;
+  const iHaveApproved = mig ? draft.approvedBy.includes(mig) : false;
   const waitingFor = household.parties
     .filter((p) => !draft.approvedBy.includes(p.partyId))
     .map((p) => p.name);
 
+  // Vem som fyllt i, och därmed vem frågan gäller.
+  const motpart = household.parties.find((p) => p.partyId !== mig);
+  const minaEnheter = mig ? (draft.startUnits[mig] ?? 0) : 0;
+  const minAndel = draft.totalUnits > 0 ? minaEnheter / draft.totalUnits : 0;
+
   return (
-    <section className="tile-surface p-5">
-      <p className="eyebrow">Överenskommelse att godkänna · version {draft.version}</p>
-      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+    <section data-testid="godkann-avtal" className="tile-surface p-5 sm:p-6">
+      <p className="eyebrow text-primary">Din tur · uppstart 3 av 4</p>
+      <h2 className="mt-1 font-serif text-xl font-medium leading-snug tracking-tight">
+        {motpart ? `${motpart.name} har fyllt i köpet. Stämmer det?` : "Stämmer uppgifterna?"}
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        Godkänner ni båda börjar uppgifterna gälla och beräkningen startar från tillträdesdagen.
+      </p>
+
+      {mig && (
+        <div className="mt-5 rounded-md bg-secondary p-4">
+          <p className="text-sm text-muted-foreground">Det här ger dig</p>
+          <p className="tabular mt-0.5 font-serif text-[40px] font-medium leading-none tracking-tight">
+            {fmtAndel(minAndel)}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {fmtEnheter(minaEnheter)} andelsenheter av {fmtEnheter(draft.totalUnits)}. Betalar du
+            mer än din del framöver flyttas enheter från {motpart?.name ?? "motparten"} till dig.{" "}
+            <Explain {...TERMS.andelsenhet} label="Vad är en andelsenhet?" />
+          </p>
+        </div>
+      )}
+
+      <p className="eyebrow mt-6">Uppgifterna att godkänna</p>
+      <dl className="mt-2 grid gap-2 text-sm">
         {household.propertyAddress && <Row label="Bostad" value={household.propertyAddress} />}
         <Row label="Startdag" value={fmtDate(draft.startDate)} />
         <Row label="Startvärde" value={fmtKr(toKronor(draft.startValue))} />
         <Row label="Bolån på startdagen" value={fmtKr(toKronor(draft.initialLoan))} />
-        <Row label="Totalt antal andelsenheter" value={fmtEnheter(draft.totalUnits)} />
         {Object.entries(draft.startUnits).map(([partyId, units]) => (
           <Row
             key={partyId}
@@ -73,34 +105,41 @@ export function AgreementApproval() {
           />
         ))}
       </dl>
-      {draft.reason && <p className="mt-3 text-xs text-muted-foreground">{draft.reason}</p>}
-      {draft.checksum && (
-        <p className="mt-1 break-all font-mono text-[0.68rem] text-muted-foreground">
-          Kontrollsumma {draft.checksum}
-        </p>
-      )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
+      <div className="mt-5 grid gap-2">
         <Button
-          size="sm"
-          disabled={iHaveApproved || approve.isPending || !draft.myPartyId}
+          className="h-11"
+          disabled={iHaveApproved || approve.isPending || !mig}
           onClick={() => approve.mutate()}
         >
-          {iHaveApproved ? "Du har godkänt" : "Godkänn överenskommelsen"}
+          {iHaveApproved ? "Du har godkänt uppgifterna" : "Godkänn uppgifterna"}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          {waitingFor.length === 0
-            ? "Båda har godkänt."
-            : `Väntar på ${waitingFor.join(" och ")}. Ingen kan godkänna åt den andra.`}
-        </p>
+        {!iHaveApproved && motpart && (
+          <p className="text-sm text-muted-foreground">
+            Stämmer något inte – be {motpart.name} rätta. En rättelse blir en ny version, och båda
+            godkännandena faller.
+          </p>
+        )}
       </div>
+
+      <p className="mt-4 border-t border-hairline pt-3 text-sm text-muted-foreground">
+        {waitingFor.length === 0
+          ? "Båda har godkänt."
+          : `Väntar på ${waitingFor.join(" och ")}. Ingen kan godkänna åt den andra.`}
+      </p>
+      {draft.reason && <p className="mt-1 text-sm text-muted-foreground">{draft.reason}</p>}
+      {draft.checksum && (
+        <p className="mt-1 break-all font-mono text-[0.68rem] text-muted-foreground">
+          Version {draft.version} · kontrollsumma {draft.checksum}
+        </p>
+      )}
     </section>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3">
+    <div className="flex justify-between gap-3 border-b border-hairline pb-2 last:border-0">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="tabular">{value}</dd>
     </div>

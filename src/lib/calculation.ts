@@ -139,3 +139,36 @@ export function needsQuarterlyReview(
   if (!since) return { due: false, since: null };
   return { due: daysBetween(since, now) >= REVIEW_INTERVAL_DAYS, since };
 }
+
+/**
+ * Posterna som väntar på en viss parts ställningstagande.
+ *
+ * Ren funktion, och det är hela poängen: svaret behövs på tre ställen -
+ * notisen i navigationen, kortet på översikten och sidan Väntar - och de tre
+ * måste räkna likadant. Ett märke som säger 1 medan sidan visar 0 är värre än
+ * inget märke.
+ *
+ * Den som registrerade posten har godkänt den i samma steg, och den som redan
+ * tagit ställning väntar inte på sig själv. Kvar blir det man faktiskt ska
+ * göra något åt.
+ */
+export function awaitingMyDecision(
+  transactions: Transaction[],
+  revisions: ReadonlyMap<
+    string,
+    { authorId?: string; approvedBy?: Record<string, unknown> | null }[]
+  >,
+  myPartyId: string | null,
+): { transaction: Transaction; registeredByPartyId: string }[] {
+  if (!myPartyId) return [];
+
+  return pendingTransactions(transactions).flatMap((transaction) => {
+    const versions = revisions.get(transaction.id) ?? [];
+    const latest = versions[versions.length - 1];
+    const registeredByPartyId = latest?.authorId ?? "";
+    const iHaveDecided = Boolean(latest?.approvedBy?.[myPartyId]);
+
+    if (registeredByPartyId === myPartyId || iHaveDecided) return [];
+    return [{ transaction, registeredByPartyId }];
+  }) as { transaction: Transaction; registeredByPartyId: string }[];
+}

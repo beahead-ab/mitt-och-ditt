@@ -44,13 +44,20 @@ export const inviteDetails = createServerFn({ method: "GET" })
         email: string;
         display_name: string;
         household: string;
+        inviter: string | null;
+        address: string | null;
         expires_at: Date;
         accepted_at: Date | null;
         revoked_at: Date | null;
       }[]
     >`
-      select i.email, i.display_name, h.name as household, i.expires_at, i.accepted_at, i.revoked_at
-      from invites i join households h on h.id = i.household_id
+      select i.email, i.display_name, h.name as household,
+             u.name as inviter, p.address,
+             i.expires_at, i.accepted_at, i.revoked_at
+      from invites i
+      join households h on h.id = i.household_id
+      left join users u on u.id = i.invited_by
+      left join properties p on p.household_id = i.household_id
       where i.token_hash = ${hashToken(data.token)}
     `;
     const invite = rows[0];
@@ -62,6 +69,12 @@ export const inviteDetails = createServerFn({ method: "GET" })
       email: invite.email,
       name: invite.display_name,
       household: invite.household,
+      // Vem som bjudit in och till vilken bostad. Utan det säger sidan bara
+      // "skapa ett konto", och den som fått länken vet inte vad hen tackar ja
+      // till. Adressen saknas innan uppstarten är gjord - då räcker
+      // hushållets namn.
+      inviter: invite.inviter,
+      address: invite.address,
     };
   });
 
