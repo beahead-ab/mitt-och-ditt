@@ -302,8 +302,32 @@ describe("Kostnader utanför enhetsmodellen", () => {
         ],
       }),
     );
-    expect(toKronor(result.settlement.outsideNet[CAESAR])).toBe(10_000);
-    expect(toKronor(result.settlement.outsideNet[FELICIA])).toBe(-10_000);
+    // Caesar har lagt ut 10 000 på en kostnad som delas lika. Han ska bära
+    // 5 000 av dem själv, så det Felicia är skyldig honom är 5 000 - inte hela
+    // utlägget. Att kräva hela beloppet vore att låta honom slippa sin egen del.
+    expect(toKronor(result.settlement.outsideNet[CAESAR])).toBe(5_000);
+    expect(toKronor(result.settlement.outsideNet[FELICIA])).toBe(-5_000);
+    expect(result.settlement.checks.positionsBalance).toBe(0);
+  });
+
+  it("saldot utanför modellen är samma tal i översikten som i avräkningen", () => {
+    // Översikten läser outside.balance, avräkningen outsideNet. Visar de olika
+    // tal för samma skuld ser paret två svar på en fråga och kan inte veta
+    // vilket som gäller. Summakontrollen fångar inte det, eftersom vilket
+    // motsatspar som helst summerar till noll - därför prövas det här.
+    const result = calculate(
+      input({
+        transactions: [
+          tx({ id: "T1", category: "BRF-avgift", payments: { [CAESAR]: { gross: kr(4_850) } } }),
+          tx({ id: "T2", category: "Försäkring", payments: { [FELICIA]: { gross: kr(1_200) } } }),
+        ],
+      }),
+    );
+
+    expect(result.settlement.outsideNet[CAESAR]).toBe(result.outside.balance[CAESAR]);
+    expect(result.settlement.outsideNet[FELICIA]).toBe(result.outside.balance[FELICIA]);
+    // Och saldot självt tar ut sig, vilket är varför differensen inte ska tas.
+    expect(result.outside.balance[CAESAR] + result.outside.balance[FELICIA]).toBe(0);
     expect(result.settlement.checks.positionsBalance).toBe(0);
   });
 

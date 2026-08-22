@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { normalizeSpaces, parseCsv } from "@/lib/__tests__/normalize";
 import { escapeField, exportFilename, formatNumber, toCsv } from "@/lib/export/csv";
+import { ENGINE_VERSION } from "@/lib/engine/engine";
 import { agreementMarkdown, summaryMarkdown } from "@/lib/export/documents";
 import { transactionCsvColumns } from "@/lib/export/transactions";
 import {
@@ -169,7 +170,9 @@ describe("Dokument", () => {
     expect(markdown).toContain("Slutlig intern andel");
     expect(markdown).toContain("Totalt antal enheter oförändrat | OK");
     expect(markdown).toContain("Behandlade betalningsdagar");
-    expect(markdown).toContain("Beräkningsmotor 1.0.0");
+    // Versionen läses ur motorn: en höjning ska synas i dokumentet, inte fälla
+    // provet.
+    expect(markdown).toContain(`Beräkningsmotor ${ENGINE_VERSION}`);
   });
 
   it("sammanställningen i slutläge saknar prognosvarningen", () => {

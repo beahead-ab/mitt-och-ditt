@@ -20,7 +20,7 @@ import type {
  * kunna räknas om och ge exakt samma resultat, och då måste det framgå vilken
  * version som producerade det ursprungliga resultatet.
  */
-export const ENGINE_VERSION = "1.0.0";
+export const ENGINE_VERSION = "1.1.0";
 
 /**
  * Linjärt beräknat bostadsvärde på dag d (avtal 8.2):
@@ -432,12 +432,20 @@ function settle(args: {
   const [shareA, shareB] = splitExact(saleNet, args.finalShares[a]);
   const byShare: ByParty<Ore> = { [a]: shareA, [b]: shareB };
 
-  // Fordringar och utanförsaldon nettas mellan parterna: den ena partens
-  // tillgodohavande är exakt den andras skuld.
+  // Fordringarna räknas upp ensidigt hos den som lagt ut: bara överbetalaren
+  // får ett påslag, aldrig motparten. Därför måste de nettas här, annars skulle
+  // två fordringar åt var sitt håll båda betalas ut.
   const claimDelta = args.claims[a] - args.claims[b];
   const claimsNet: ByParty<Ore> = { [a]: claimDelta, [b]: -claimDelta };
-  const outsideDelta = args.outsideBalance[a] - args.outsideBalance[b];
-  const outsideNet: ByParty<Ore> = { [a]: outsideDelta, [b]: -outsideDelta };
+
+  // Saldot utanför modellen är däremot redan nettat när det byggs: varje post
+  // bokförs som betalt minus egen andel på båda parter, och splitExact lägger
+  // resten på den andra, så summan är exakt noll. Den enes plus *är* den andras
+  // minus. Att ta differensen även här skulle dubbla beloppet - och
+  // summakontrollen nedan hade ändå gått ihop, eftersom vilket motsatspar som
+  // helst summerar till noll. Det är samma sorts fel som en balansräkning som
+  // stämmer med båda sidor dubblade.
+  const outsideNet: ByParty<Ore> = { [a]: args.outsideBalance[a], [b]: args.outsideBalance[b] };
 
   const finalPosition: ByParty<Ore> = {
     [a]: byShare[a] + claimsNet[a] + outsideNet[a],
