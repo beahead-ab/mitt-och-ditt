@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app-shell";
+import { DemoNotice } from "@/components/demo-notice";
 import { useHousehold, usePartyName } from "@/components/household-context";
 import { MoneyField } from "@/components/money-field";
 import { Button } from "@/components/ui/button";
@@ -81,10 +82,10 @@ function RegressPage() {
     return (
       <>
         <PageHeader eyebrow="Transaktioner" title="Regresskrav" />
-        <div className="tile-surface p-6 text-sm leading-relaxed text-muted-foreground">
-          Regresskrav kräver databas. Här registreras det skriftliga kravet, och räntan räknas fram
-          enligt 6 § räntelagen från trettio dagar efter kravet.
-        </div>
+        <DemoNotice vad="En regressfordran uppstår när den ena parten betalat mer till banken än den interna fördelningen säger. Här registreras det skriftliga kravet – det är den dagen som startar klockan.">
+          Fordran förfaller trettio dagar senare, och därefter löper dröjsmålsränta enligt 6 §
+          räntelagen: referensräntan plus åtta procentenheter, delad vid varje ändring av satsen.
+        </DemoNotice>
       </>
     );
   }

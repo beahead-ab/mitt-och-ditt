@@ -283,7 +283,6 @@ function SimulatorFor({
       <PageHeader
         eyebrow="Prognos"
         title={`Om ni säljer ${fmtDate(endDate)} för ${fmtKr(endValue)}`}
-        info={<Explain {...TERMS.prognos} />}
       />
 
       <section className="mb-4 grid gap-4 sm:grid-cols-2">
@@ -362,7 +361,8 @@ function SimulatorFor({
       <p className="mb-6 rounded-md border border-hairline bg-secondary/60 p-3 text-sm leading-relaxed">
         Detta är en prognos. Resultatet blir bindande enligt avtalet först när verkligt
         försäljningspris eller fastställt utköpsvärde används i slutavräkningen. Ingenting du ändrar
-        här sparas eller påverkar avtal, transaktioner eller godkända andelar.
+        här sparas eller påverkar avtal, transaktioner eller godkända andelar.{" "}
+        <Explain {...TERMS.prognos} label="Vad skiljer en prognos från en avräkning?" />
       </p>
 
       {/* Spannet som en tabell, inte som två kort 900 px från reglaget. Tre
