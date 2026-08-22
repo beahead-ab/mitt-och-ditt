@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +75,7 @@ function MailPage() {
       />
 
       {isDemo ? (
-        <EmptyState title="Demoläge" hint="Mailkön kräver databas." />
+        <DemoNotice vad="Utkorgen visar vilka mail som väntar, gått fram eller gett upp. Innehållet är krypterat och kastas så fort mailet levererats – bara metadata blir kvar." />
       ) : rader.length === 0 ? (
         <EmptyState
           title="Inga mail ännu"

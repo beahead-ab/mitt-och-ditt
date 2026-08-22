@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Copy } from "lucide-react";
 import { useState } from "react";
@@ -124,7 +125,7 @@ function InvitesPage() {
       />
 
       {isDemo ? (
-        <EmptyState title="Demoläge" hint="Inbjudningar kräver databas." />
+        <DemoNotice vad="En inbjudan gäller en gång, för en e-postadress och en partsroll. Länken visas en enda gång; databasen sparar bara hashen." />
       ) : (
         <>
           <section className="tile-surface mb-6 p-5">

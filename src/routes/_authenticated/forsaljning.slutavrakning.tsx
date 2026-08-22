@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Lock, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState } from "react";
@@ -113,9 +114,10 @@ function SettlementPage() {
     return (
       <>
         <PageHeader eyebrow="Försäljning & utköp" title="Slutavräkning" />
-        <div className="tile-surface p-6 text-sm text-muted-foreground">
-          Slutavräkningen kräver databas.
-        </div>
+        <DemoNotice vad="Slutavräkningen fryser beräkningen: indata, resultat och en kontrollsumma sparas som de var. Båda parter godkänner, och därefter kan ingen roll ändra den – inte heller den som administrerar tjänsten.">
+          Protokollet följer avtalets bilaga 3 och går att räkna om ur samma indata när som helst.
+          Ger omräkningen ett annat resultat syns det, i stället för att jämnas ut.
+        </DemoNotice>
       </>
     );
   }

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, CircleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -75,7 +76,7 @@ function AvstamningPage() {
       />
 
       {isDemo ? (
-        <EmptyState title="Demoläge" hint="Avstämning kräver databas." />
+        <DemoNotice vad="Var tredje månad går ni igenom samma checklista var för sig – transaktioner, lånesaldo, skatteeffekter och underlag – och perioden avslutas först när båda bekräftat. Nästa förfallodag räknas från den senast avslutade avstämningen, inte från senaste posten." />
       ) : !lage ? (
         <EmptyState title="Läser in …" />
       ) : (

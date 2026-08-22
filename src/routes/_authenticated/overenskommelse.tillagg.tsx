@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, FileText, Lock } from "lucide-react";
 import { useState } from "react";
@@ -81,7 +82,7 @@ function TillaggPage() {
       </p>
 
       {isDemo ? (
-        <EmptyState title="Demoläge" hint="Tilläggsavtal kräver databas." />
+        <DemoNotice vad="Ett undertecknat tillägg registreras med sitt dokument, och kontrollsumman räknas fram på servern ur den fil som faktiskt lagrats. Båda parter bekräftar den summa de själva sett." />
       ) : (
         <>
           {household && <NyttTillagg householdId={household.id} />}

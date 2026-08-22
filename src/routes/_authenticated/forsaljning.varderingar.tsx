@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -60,7 +61,7 @@ function ValuationsPage() {
       <>
         <PageHeader eyebrow="Försäljning & utköp" title="Värderingar" />
         <div className="tile-surface p-6 text-sm text-muted-foreground">
-          Värderingar kräver databas.
+          Värderingar registreras med mäklarens underlag och kräver databas.
         </div>
       </>
     );

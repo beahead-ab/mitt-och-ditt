@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -64,7 +65,7 @@ function VersionerPage() {
       />
 
       {isDemo ? (
-        <EmptyState title="Demoläge" hint="Avtalsversioner kräver databas." />
+        <DemoNotice vad="Varje version av startuppgifterna ligger kvar med sin kontrollsumma och sina godkännanden. En rättelse blir en ny version och fäller båda godkännandena – en gällande version kan aldrig skrivas om." />
       ) : versioner.length === 0 ? (
         <EmptyState
           title="Ingen avtalsversion ännu"

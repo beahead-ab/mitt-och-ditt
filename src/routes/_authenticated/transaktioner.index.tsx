@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { DemoNotice } from "@/components/demo-notice";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app-shell";
@@ -33,13 +34,10 @@ function Register() {
       />
 
       {isDemo ? (
-        <div className="tile-surface p-6">
-          <p className="eyebrow">Demoläge</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Registrering kräver databas. Starta utan <code className="font-mono">VITE_DEMO</code>{" "}
-            för att skriva riktiga poster.
-          </p>
-        </div>
+        <DemoNotice vad="Den som registrerar en betalning godkänner den i samma steg. Motparten tar ställning, och först när båda gjort det påverkar posten andelarna.">
+          Poster raderas aldrig. Fel rättas med en korrigering, och en post som inte hör hit
+          makuleras – båda syns i historiken.
+        </DemoNotice>
       ) : !agreement || !household ? (
         <NoAgreement loading={isLoading} />
       ) : (

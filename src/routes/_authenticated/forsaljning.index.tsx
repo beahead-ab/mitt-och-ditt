@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarClock, CircleCheck, CircleDot } from "lucide-react";
 import { useState } from "react";
@@ -77,12 +78,9 @@ function ExitProcessPage() {
     return (
       <>
         <PageHeader eyebrow="Försäljning & utköp" title="Process" />
-        <div className="tile-surface p-6">
-          <p className="eyebrow">Demoläge</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Exitprocessen kräver databas. Starta utan <code className="font-mono">VITE_DEMO</code>.
-          </p>
-        </div>
+        <DemoNotice vad="Här registreras att någon vill ut: extern försäljning, utköp eller dödsfall. Processen bär sina frister, sin checklista och vem som meddelat vad – så att ingen behöver minnas datum ur huvudet.">
+          Utköpsvärdet fastställs genom värderingar, och slutavräkningen görs på det värdet.
+        </DemoNotice>
       </>
     );
   }

@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Lock } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
@@ -18,15 +19,6 @@ export const Route = createFileRoute("/_authenticated/overenskommelse/")({
 });
 
 /** Ändringar som kräver separat undertecknat tilläggsavtal (avtal 25.1). */
-const LOCKED = [
-  "Samboavtalsdelen",
-  "Formella ägarandelar",
-  "Startvärdet",
-  "Startdagen",
-  "Den linjära beräkningsformeln",
-  "Slutavräkningsregeln",
-  "Tremånadersregeln",
-];
 
 function Current() {
   const { agreement, isLoading } = useHouseholdData();
@@ -69,8 +61,8 @@ function Current() {
           {household?.apartmentNumber && (
             <Item label="Lägenhetsnummer" value={household.apartmentNumber} />
           )}
-          <Item label="Startdag" value={fmtDate(agreement.startDate)} />
-          <Item label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} />
+          <Item label="Startdag" value={fmtDate(agreement.startDate)} låst />
+          <Item label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} låst />
           <Item label="Bolån på startdagen" value={fmtKr(toKronor(agreement.initialLoan))} />
           <Item
             label="Totalt antal andelsenheter"
@@ -111,20 +103,18 @@ function Current() {
       </section>
 
       <section className="tile-surface p-5">
-        <p className="eyebrow mb-2">Kräver undertecknat tilläggsavtal</p>
-        <p className="text-sm text-muted-foreground">
-          Följande går inte att ändra som en vanlig inställning i tjänsten:
+        <p className="eyebrow mb-2">Vad som kräver ett undertecknat tillägg</p>
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+          Uppgifterna ovan är låsta av avtalet. De går inte att ändra som en inställning - varken av
+          er eller av den som administrerar tjänsten - utan bara genom ett tillägg som båda skrivit
+          under. Detsamma gäller den linjära beräkningsformeln, slutavräkningsregeln och
+          tremånadersregeln, som ligger i motorn.
         </p>
-        <ul className="mt-2 grid gap-1 text-sm">
-          {LOCKED.map((item) => (
-            <li key={item} className="flex gap-2">
-              <span className="text-muted-foreground" aria-hidden>
-                ·
-              </span>
-              {item}
-            </li>
-          ))}
-        </ul>
+        <p className="mt-3 text-sm">
+          <Link to="/overenskommelse/tillagg" className="text-primary underline underline-offset-4">
+            Registrera ett tilläggsavtal
+          </Link>
+        </p>
       </section>
     </>
   );
@@ -134,10 +124,13 @@ function Item({
   label,
   value,
   explain,
+  låst,
 }: {
   label: string;
   value: string;
   explain?: (typeof TERMS)[keyof typeof TERMS];
+  /** Fältet skyddas av avtalets punkt 25.1 och ändras bara genom ett tillägg. */
+  låst?: boolean;
 }) {
   return (
     <div>
@@ -146,6 +139,12 @@ function Item({
         {explain && <Explain {...explain} />}
       </dt>
       <dd className="tabular mt-0.5 text-base font-medium">{value}</dd>
+      {låst && (
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Lock className="size-3" aria-hidden />
+          Låst av avtalet
+        </p>
+      )}
     </div>
   );
 }
