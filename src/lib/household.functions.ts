@@ -32,7 +32,7 @@ export type PartnerInvite = {
   id: string;
   email: string;
   displayName: string;
-  partyId: "caesar" | "felicia";
+  partyId: string;
   createdAt: string;
   expiresAt: string;
   acceptedAt: string | null;
@@ -60,7 +60,7 @@ export const listPartnerInvites = createServerFn({ method: "GET" })
           id: string;
           email: string;
           display_name: string;
-          party_id: "caesar" | "felicia";
+          party_id: string;
           created_at: Date;
           expires_at: Date;
           accepted_at: Date | null;
@@ -68,12 +68,15 @@ export const listPartnerInvites = createServerFn({ method: "GET" })
           invited_by: string | null;
         }[]
       >`
-        select id, email, display_name, party_id, created_at, expires_at,
-               accepted_at, revoked_at, invited_by
-        from invites
-        where household_id = ${data.householdId}
-          and party_id in ('caesar', 'felicia')
-        order by created_at desc
+        select i.id, i.email, i.display_name, i.party_id, i.created_at, i.expires_at,
+               i.accepted_at, i.revoked_at, i.invited_by
+        from invites i
+        join households h on h.id = i.household_id
+        where i.household_id = ${data.householdId}
+          -- Hushållets två roller, vilka de än heter. En inbjudan till någon
+          -- annan roll hör inte till parternas vy.
+          and i.party_id in (h.party_a, h.party_b)
+        order by i.created_at desc
       `;
 
       return rows.map((row) => ({
@@ -120,11 +123,18 @@ export const createPartnerInvite = createServerFn({ method: "POST" })
       `;
       if (!membership) throw new Error("Du tillhör inte hushållet.");
 
+      // Motparten är den av hushållets två roller som inte är min. Rollerna
+      // står på hushållet, så servern behöver aldrig gissa på namn - och
+      // klienten kan fortfarande inte välja roll åt sig själv.
+      const [slots] = await sql<{ party_a: string; party_b: string }[]>`
+        select party_a, party_b from households where id = ${data.householdId}
+      `;
+      if (!slots) throw new Error("Hushållet finns inte.");
       const targetParty =
-        membership.party_id === "caesar"
-          ? "felicia"
-          : membership.party_id === "felicia"
-            ? "caesar"
+        membership.party_id === slots.party_a
+          ? slots.party_b
+          : membership.party_id === slots.party_b
+            ? slots.party_a
             : null;
       if (!targetParty) throw new Error("Din partsroll kan inte bjuda in en motpart.");
 

@@ -26,10 +26,16 @@ export function AgreementSetup() {
   const [startDate, setStartDate] = useState("");
   const [startValue, setStartValue] = useState("");
   const [initialLoan, setInitialLoan] = useState("");
-  const [caesarCapital, setCaesarCapital] = useState("");
-  const [feliciaCapital, setFeliciaCapital] = useState("");
-  const [caesarFormal, setCaesarFormal] = useState("");
-  const [feliciaFormal, setFeliciaFormal] = useState("");
+  // Nycklade på partsroll, inte på namn: hushållets två roller kan heta vad
+  // som helst, och gör det för alla par utom det första.
+  const [capital, setCapital] = useState<Record<string, string>>({});
+  const [formal, setFormal] = useState<Record<string, string>>({});
+
+  // Sorterad så ordningen i formuläret blir densamma vid varje rendering.
+  const parties = useMemo(
+    () => [...(household?.parties ?? [])].sort((x, y) => x.partyId.localeCompare(y.partyId)),
+    [household],
+  );
 
   const draftQuery = useQuery({
     queryKey: ["pending-agreement", household?.id],
@@ -54,37 +60,46 @@ export function AgreementSetup() {
     setStartDate(draft.startDate);
     setStartValue(String(toKronor(draft.startValue)));
     setInitialLoan(String(toKronor(draft.initialLoan)));
-    setCaesarCapital(String(draft.startUnits.caesar ?? ""));
-    setFeliciaCapital(String(draft.startUnits.felicia ?? ""));
-    setCaesarFormal(
-      draft.formalOwnership?.caesar === undefined ? "" : String(draft.formalOwnership.caesar * 100),
+    setCapital(
+      Object.fromEntries(
+        parties.map((party) => [party.partyId, String(draft.startUnits[party.partyId] ?? "")]),
+      ),
     );
-    setFeliciaFormal(
-      draft.formalOwnership?.felicia === undefined
-        ? ""
-        : String(draft.formalOwnership.felicia * 100),
+    setFormal(
+      Object.fromEntries(
+        parties.map((party) => {
+          const andel = draft.formalOwnership?.[party.partyId];
+          return [party.partyId, andel === undefined ? "" : String(andel * 100)];
+        }),
+      ),
     );
-  }, [draft, draftQuery.isFetched]);
+  }, [draft, draftQuery.isFetched, parties]);
 
-  const values = useMemo(
-    () => ({
+  const values = useMemo(() => {
+    const tal = (karta: Record<string, string>) =>
+      Object.fromEntries(
+        parties.map((party) => [party.partyId, asNumber(karta[party.partyId] ?? "")]),
+      );
+    return {
       startValue: asNumber(startValue),
       initialLoan: asNumber(initialLoan),
-      caesarCapital: asNumber(caesarCapital),
-      feliciaCapital: asNumber(feliciaCapital),
-      caesarFormal: asNumber(caesarFormal),
-      feliciaFormal: asNumber(feliciaFormal),
-    }),
-    [startValue, initialLoan, caesarCapital, feliciaCapital, caesarFormal, feliciaFormal],
-  );
+      capitalKrByParty: tal(capital),
+      formalPercentByParty: tal(formal),
+    };
+  }, [startValue, initialLoan, capital, formal, parties]);
+
   const netEquity = values.startValue - values.initialLoan;
-  const capitalTotal = values.caesarCapital + values.feliciaCapital;
+  const capitalBelopp = Object.values(values.capitalKrByParty);
+  const formalTal = Object.values(values.formalPercentByParty);
+  const capitalTotal = capitalBelopp.reduce((a, b) => a + b, 0);
   const financingMatches =
-    Number.isFinite(netEquity) && netEquity > 0 && netEquity === capitalTotal;
+    capitalBelopp.every(Number.isFinite) &&
+    Number.isFinite(netEquity) &&
+    netEquity > 0 &&
+    netEquity === capitalTotal;
   const ownershipMatches =
-    Number.isFinite(values.caesarFormal) &&
-    Number.isFinite(values.feliciaFormal) &&
-    Math.abs(values.caesarFormal + values.feliciaFormal - 100) < 0.000001;
+    formalTal.every(Number.isFinite) &&
+    Math.abs(formalTal.reduce((a, b) => a + b, 0) - 100) < 0.000001;
 
   const save = useMutation({
     mutationFn: () =>
@@ -97,10 +112,8 @@ export function AgreementSetup() {
           startDate,
           startValueKr: values.startValue,
           initialLoanKr: values.initialLoan,
-          caesarCapitalKr: values.caesarCapital,
-          feliciaCapitalKr: values.feliciaCapital,
-          caesarFormalPercent: values.caesarFormal,
-          feliciaFormalPercent: values.feliciaFormal,
+          capitalKrByParty: values.capitalKrByParty,
+          formalPercentByParty: values.formalPercentByParty,
         },
       }),
     onSuccess: (result) => {
@@ -112,10 +125,8 @@ export function AgreementSetup() {
   });
 
   if (!household) return null;
-  const hasBothParties =
-    household.parties.length === 2 &&
-    household.parties.some((party) => party.partyId === "caesar") &&
-    household.parties.some((party) => party.partyId === "felicia");
+  // Två anslutna parter, vilka de än är. Motorn räknar på exakt två.
+  const hasBothParties = parties.length === 2;
 
   if (!hasBothParties) {
     return (
@@ -123,8 +134,8 @@ export function AgreementSetup() {
         <p className="eyebrow">Nästa steg</p>
         <h2 className="mt-1 text-lg font-medium">Bjud in motparten först</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Startuppgifterna öppnas när både Caesar och Felicia har skapat sina konton. Ingen av dem
-          kan ensam göra ett avtalsutkast gällande.
+          Startuppgifterna öppnas när båda parter har skapat sina konton. Ingen av er kan ensam göra
+          ett avtalsutkast gällande.
         </p>
         <Button asChild variant="outline" size="sm" className="mt-4">
           <Link to="/overenskommelse/parter">Gå till Parter</Link>
@@ -153,8 +164,8 @@ export function AgreementSetup() {
       <p className="eyebrow">{draft ? "Korrigerat utkast" : "Gemensam uppstart"}</p>
       <h2 className="mt-1 text-lg font-medium">Fyll i bostaden och startvärdena</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Den som fyller i skapar bara ett utkast. Ingenting börjar gälla förrän både Caesar och
-        Felicia har kontrollerat och godkänt samma version.
+        Den som fyller i skapar bara ett utkast. Ingenting börjar gälla förrän båda parter har
+        kontrollerat och godkänt samma version.
       </p>
 
       {draft && (
@@ -220,20 +231,19 @@ export function AgreementSetup() {
               {Number.isFinite(netEquity) ? fmtKr(netEquity) : "–"}
             </p>
           </div>
-          <Field label="Caesars kapitalinsats (kr)" id="setup-caesar-capital">
-            <MoneyInput
-              id="setup-caesar-capital"
-              value={caesarCapital}
-              setValue={setCaesarCapital}
-            />
-          </Field>
-          <Field label="Felicias kapitalinsats (kr)" id="setup-felicia-capital">
-            <MoneyInput
-              id="setup-felicia-capital"
-              value={feliciaCapital}
-              setValue={setFeliciaCapital}
-            />
-          </Field>
+          {parties.map((party) => (
+            <Field
+              key={party.partyId}
+              label={`Kapitalinsats \u00b7 ${party.name} (kr)`}
+              id={`setup-capital-${party.partyId}`}
+            >
+              <MoneyInput
+                id={`setup-capital-${party.partyId}`}
+                value={capital[party.partyId] ?? ""}
+                setValue={(next) => setCapital((före) => ({ ...före, [party.partyId]: next }))}
+              />
+            </Field>
+          ))}
           <p
             className={`sm:col-span-2 text-sm ${financingMatches ? "text-muted-foreground" : "text-destructive"}`}
           >
@@ -245,20 +255,19 @@ export function AgreementSetup() {
 
         <fieldset className="grid gap-3 sm:grid-cols-2">
           <legend className="eyebrow mb-3 sm:col-span-2">Formell ägarandel</legend>
-          <Field label="Caesar (%)" id="setup-caesar-formal">
-            <PercentInput
-              id="setup-caesar-formal"
-              value={caesarFormal}
-              setValue={setCaesarFormal}
-            />
-          </Field>
-          <Field label="Felicia (%)" id="setup-felicia-formal">
-            <PercentInput
-              id="setup-felicia-formal"
-              value={feliciaFormal}
-              setValue={setFeliciaFormal}
-            />
-          </Field>
+          {parties.map((party) => (
+            <Field
+              key={party.partyId}
+              label={`${party.name} (%)`}
+              id={`setup-formal-${party.partyId}`}
+            >
+              <PercentInput
+                id={`setup-formal-${party.partyId}`}
+                value={formal[party.partyId] ?? ""}
+                setValue={(next) => setFormal((före) => ({ ...före, [party.partyId]: next }))}
+              />
+            </Field>
+          ))}
           <p
             className={`sm:col-span-2 text-sm ${ownershipMatches ? "text-muted-foreground" : "text-destructive"}`}
           >

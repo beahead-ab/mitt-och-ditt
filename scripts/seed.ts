@@ -44,7 +44,8 @@ async function main() {
       existing[0]?.id ??
       (
         await tx<{ id: string }[]>`
-          insert into households (name) values ('Caesar & Felicia') returning id`
+          insert into households (name, party_a, party_b)
+          values ('Caesar & Felicia', 'caesar', 'felicia') returning id`
       )[0].id;
 
     // Administratören hanterar bara åtkomst. Bostads- och avtalsuppgifter

@@ -10,7 +10,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { useExports } from "@/hooks/use-exports";
 import { TransactionActions } from "@/components/transaction-actions";
 import { TransactionView } from "@/components/transaction-view";
-import { useHousehold } from "@/components/household-context";
+import { useHousehold, usePartyName } from "@/components/household-context";
 import { useMyParty } from "@/hooks/use-my-party";
 import { isDemo } from "@/lib/demo";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,7 @@ function HistoryFor({
   const [asOf, setAsOf] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const { household } = useHousehold();
+  const partyName = usePartyName();
   const myPartyId = useMyParty();
   const navigate = useNavigate();
   const { transactionExports } = useExports(agreement);
@@ -227,7 +228,7 @@ function HistoryFor({
           <div className="hidden md:block">
             <DataGrid
               caption="Dagsberäkning"
-              columns={dayEventColumns(agreement)}
+              columns={dayEventColumns(agreement, partyName)}
               rows={result.events}
               rowKey={(event) => event.date}
               empty="Inga godkända poster påverkar andelarna än."

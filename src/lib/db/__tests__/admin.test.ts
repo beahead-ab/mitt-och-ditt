@@ -322,8 +322,11 @@ describeDb("En vanlig part är inte administratör", () => {
   });
 
   it("kan bara bjuda in den saknade motparten till sitt eget hushåll", async () => {
+    // Hushållet säger själv vilka två roller det har. Utan det vet varken
+    // policyn eller koden vem motparten är.
     const [caesarsHousehold] = await owner`
-      insert into households (name) values ('Caesars nya hushåll') returning id`;
+      insert into households (name, party_a, party_b)
+      values ('Caesars nya hushåll', 'caesar', 'felicia') returning id`;
     await owner`
       insert into household_members (household_id, user_id, party_id, display_name)
       values (${caesarsHousehold.id}, ${ids.caesar}, 'caesar', 'Caesar')`;
@@ -384,7 +387,8 @@ describeDb("En vanlig part är inte administratör", () => {
     expect(revoked.revoked_at).not.toBeNull();
 
     const [feliciasHousehold] = await owner`
-      insert into households (name) values ('Felicias nya hushåll') returning id`;
+      insert into households (name, party_a, party_b)
+      values ('Felicias nya hushåll', 'caesar', 'felicia') returning id`;
     await owner`
       insert into household_members (household_id, user_id, party_id, display_name)
       values (${feliciasHousehold.id}, ${ids.felicia}, 'felicia', 'Felicia')`;
@@ -402,7 +406,8 @@ describeDb("En vanlig part är inte administratör", () => {
 
   it("kan aldrig göra ett avtal gällande innan motparten har anslutit", async () => {
     const [household] = await owner`
-      insert into households (name) values ('Ensam part') returning id`;
+      insert into households (name, party_a, party_b)
+      values ('Ensam part', 'caesar', 'felicia') returning id`;
     await owner`
       insert into household_members (household_id, user_id, party_id, display_name)
       values (${household.id}, ${ids.caesar}, 'caesar', 'Caesar')`;

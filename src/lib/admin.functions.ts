@@ -199,6 +199,8 @@ export type AdminHousehold = {
   name: string;
   address: string | null;
   createdAt: string;
+  /** Hushållets två partsroller. Bara dessa går att bjuda in till. */
+  partyIds: [string, string];
   members: { userId: string; partyId: string; name: string }[];
 };
 
@@ -209,9 +211,16 @@ export const listHouseholdsAdmin = createServerFn({ method: "GET" }).handler(
 
     return asUser(user.id, async (sql) => {
       const rows = await sql<
-        { id: string; name: string; address: string | null; created_at: Date }[]
+        {
+          id: string;
+          name: string;
+          address: string | null;
+          created_at: Date;
+          party_a: string;
+          party_b: string;
+        }[]
       >`
-        select h.id, h.name, p.address, h.created_at
+        select h.id, h.name, p.address, h.created_at, h.party_a, h.party_b
         from households h left join properties p on p.household_id = h.id
         order by h.created_at
       `;
@@ -224,6 +233,7 @@ export const listHouseholdsAdmin = createServerFn({ method: "GET" }).handler(
         name: row.name,
         address: row.address,
         createdAt: row.created_at.toISOString(),
+        partyIds: [row.party_a, row.party_b],
         members: members
           .filter((m) => m.household_id === row.id)
           .map((m) => ({ userId: m.user_id, partyId: m.party_id, name: m.display_name })),
@@ -422,6 +432,19 @@ export const createInvite = createServerFn({ method: "POST" })
     const giltigTill = expiresIn(INVITE_DAYS);
 
     const skapad = await asUser(user.id, async (sql) => {
+      // Rollen måste vara en av hushållets två. Annars skulle en inbjudan
+      // skapa en tredje part som motorn inte räknar med, och som
+      // radnivåsäkerhetens spärr för parternas egna inbjudningar inte känner
+      // igen - hushållet skulle se helt i sin ordning och ändå vara trasigt.
+      const [slots] = await sql<{ party_a: string; party_b: string }[]>`
+        select party_a, party_b from households where id = ${data.householdId}`;
+      if (!slots) throw new Error("Hushållet finns inte.");
+      if (data.partyId !== slots.party_a && data.partyId !== slots.party_b) {
+        throw new Error(
+          `Hushållets partsroller är ${slots.party_a} och ${slots.party_b}. Välj en av dem.`,
+        );
+      }
+
       const taken = await sql<{ id: string }[]>`
         select id from household_members
         where household_id = ${data.householdId} and party_id = ${data.partyId}`;

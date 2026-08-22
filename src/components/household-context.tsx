@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, type ReactNode } from "react";
 
 import { DEMO_HOUSEHOLD, isDemo } from "@/lib/demo";
 import { listHouseholds } from "@/lib/household.functions";
@@ -71,4 +71,20 @@ export function HouseholdProvider({
 
 export function useHousehold() {
   return useContext(HouseholdContext);
+}
+
+/**
+ * Vad parterna heter.
+ *
+ * Namnet står på medlemskapet i hushållet; koden ska aldrig veta vad någon
+ * heter. Faller tillbaka på partsnyckeln, som alltid finns - hellre "b" än en
+ * tom lucka där ett namn skulle stått.
+ */
+export function usePartyName(): (partyId: string) => string {
+  const { household } = useHousehold();
+  return useCallback(
+    (partyId: string) =>
+      household?.parties.find((party) => party.partyId === partyId)?.name ?? partyId,
+    [household],
+  );
 }

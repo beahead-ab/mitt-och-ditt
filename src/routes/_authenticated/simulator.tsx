@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { defaultEndpoint, run, today } from "@/lib/calculation";
 import { NoAgreement } from "@/components/no-agreement";
-import { useHousehold } from "@/components/household-context";
+import { useHousehold, usePartyName } from "@/components/household-context";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,6 @@ import {
   type Transaction,
 } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
-import { PARTY_LABELS } from "@/lib/seed";
 
 export const Route = createFileRoute("/_authenticated/simulator")({
   head: () => ({ meta: [{ title: "Simulator – Mitt & Ditt" }] }),
@@ -105,6 +104,7 @@ function SimulatorFor({
 
   const klient = useQueryClient();
   const { household } = useHousehold();
+  const partyName = usePartyName();
   const householdId = household?.id as string;
 
   const scenarier = useQuery({
@@ -503,8 +503,8 @@ function SimulatorFor({
           </div>
           <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
             {[
-              { label: PARTY_LABELS[a] ?? a, color: "var(--copper)", dash: undefined },
-              { label: PARTY_LABELS[b] ?? b, color: "var(--data-blue)", dash: "6 4" },
+              { label: partyName(a), color: "var(--copper)", dash: undefined },
+              { label: partyName(b), color: "var(--data-blue)", dash: "6 4" },
             ].map((s) => (
               <span
                 key={s.label}
@@ -560,7 +560,7 @@ function SimulatorFor({
                 <Line
                   type="stepAfter"
                   dataKey={a}
-                  name={PARTY_LABELS[a] ?? a}
+                  name={partyName(a)}
                   stroke="var(--copper)"
                   strokeWidth={2}
                   dot={{ r: 3, fill: "var(--copper)", strokeWidth: 0 }}
@@ -568,7 +568,7 @@ function SimulatorFor({
                 <Line
                   type="stepAfter"
                   dataKey={b}
-                  name={PARTY_LABELS[b] ?? b}
+                  name={partyName(b)}
                   stroke="var(--data-blue)"
                   strokeWidth={2}
                   strokeDasharray="6 4"
@@ -586,8 +586,8 @@ function SimulatorFor({
           <TableHeader>
             <TableRow>
               <TableHead>Post</TableHead>
-              <TableHead className="text-right">{PARTY_LABELS[a] ?? a}</TableHead>
-              <TableHead className="text-right">{PARTY_LABELS[b] ?? b}</TableHead>
+              <TableHead className="text-right">{partyName(a)}</TableHead>
+              <TableHead className="text-right">{partyName(b)}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -636,7 +636,7 @@ function SimulatorFor({
             label={`Vid +${scenario} %`}
             color={SERIES.upp.color}
             values={up ? [up.settlement.finalPosition[a], up.settlement.finalPosition[b]] : null}
-            parties={[PARTY_LABELS[a] ?? a, PARTY_LABELS[b] ?? b]}
+            parties={[partyName(a), partyName(b)]}
           />
           <Sensitivity
             label={`Vid −${scenario} %`}
@@ -644,7 +644,7 @@ function SimulatorFor({
             values={
               down ? [down.settlement.finalPosition[a], down.settlement.finalPosition[b]] : null
             }
-            parties={[PARTY_LABELS[a] ?? a, PARTY_LABELS[b] ?? b]}
+            parties={[partyName(a), partyName(b)]}
           />
         </div>
       </section>

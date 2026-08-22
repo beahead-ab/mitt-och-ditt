@@ -76,10 +76,11 @@ const initialAgreementInput = z
     startDate: isoDate,
     startValueKr: wholeKronor,
     initialLoanKr: wholeKronor,
-    caesarCapitalKr: wholeKronor,
-    feliciaCapitalKr: wholeKronor,
-    caesarFormalPercent: z.number().min(0).max(100),
-    feliciaFormalPercent: z.number().min(0).max(100),
+    // Nycklade på hushållets partsroller. Att rollerna verkligen är hushållets
+    // går inte att avgöra här - det kräver databasen - så det kontrolleras i
+    // hanteraren, innan något skrivs.
+    capitalKrByParty: z.record(z.string(), wholeKronor),
+    formalPercentByParty: z.record(z.string(), z.number().min(0).max(100)),
   })
   .superRefine((data, context) => {
     const netEquity = data.startValueKr - data.initialLoanKr;
@@ -90,24 +91,26 @@ const initialAgreementInput = z
         message: "Startvärdet måste vara större än bolånet.",
       });
     }
-    if (data.caesarCapitalKr + data.feliciaCapitalKr !== netEquity) {
+    const kapital = Object.values(data.capitalKrByParty);
+    const andelar = Object.values(data.formalPercentByParty);
+    if (kapital.reduce((a, b) => a + b, 0) !== netEquity) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["feliciaCapitalKr"],
+        path: ["capitalKrByParty"],
         message: "Kapitalinsatserna måste tillsammans motsvara startvärdet minus bolånet.",
       });
     }
-    if (Math.abs(data.caesarFormalPercent + data.feliciaFormalPercent - 100) > 0.000001) {
+    if (Math.abs(andelar.reduce((a, b) => a + b, 0) - 100) > 0.000001) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["feliciaFormalPercent"],
+        path: ["formalPercentByParty"],
         message: "De formella ägarandelarna måste tillsammans vara 100 procent.",
       });
     }
   });
 
 /**
- * Caesar eller Felicia skapar den första avtalsversionen efter att båda har
+ * Endera parten skapar den första avtalsversionen efter att båda har
  * anslutit. En ny inskickning ersätter aldrig ett äldre utkast i databasen –
  * den blir en ny version och kräver två helt nya godkännanden.
  */
@@ -122,14 +125,24 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
     if (!user) throw new Error("Ej inloggad.");
 
     return asUser(user.id, async (sql) => {
-      const members = await sql<{ party_id: string }[]>`
-        select party_id from household_members
+      const members = await sql<{ party_id: string; display_name: string }[]>`
+        select party_id, display_name from household_members
         where household_id = ${data.householdId}
         order by party_id
       `;
       const roles = members.map((member) => member.party_id);
-      if (members.length !== 2 || !roles.includes("caesar") || !roles.includes("felicia")) {
-        throw new Error("Både Caesar och Felicia måste ha anslutit innan startuppgifterna sparas.");
+      if (members.length !== 2) {
+        throw new Error("Båda parter måste ha anslutit innan startuppgifterna sparas.");
+      }
+      // De uppgivna rollerna måste vara precis hushållets. Annars skulle en
+      // påhittad nyckel hamna i start_units, och motorn räknar på nycklarna -
+      // inte på namnen. En felstavad roll blir en part utan enheter.
+      const uppgivna = [
+        Object.keys(data.capitalKrByParty).sort(),
+        Object.keys(data.formalPercentByParty).sort(),
+      ];
+      if (uppgivna.some((nycklar) => nycklar.join("\u0000") !== roles.join("\u0000"))) {
+        throw new Error("Uppgifterna gäller andra partsroller än hushållets.");
       }
 
       const [agreement] = await sql<{ id: string }[]>`
@@ -153,14 +166,15 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
         order by version desc limit 1
       `;
       const version = (latest?.version ?? 0) + 1;
-      const startUnits = {
-        caesar: data.caesarCapitalKr,
-        felicia: data.feliciaCapitalKr,
-      };
-      const formalOwnership = {
-        caesar: data.caesarFormalPercent / 100,
-        felicia: data.feliciaFormalPercent / 100,
-      };
+      // Byggda ur `roles`, som är sorterad. Nyckelordningen går in i
+      // checksumman nedan, så den får inte bero på i vilken ordning klienten
+      // råkade skicka fälten.
+      const startUnits = Object.fromEntries(
+        roles.map((role) => [role, data.capitalKrByParty[role]]),
+      );
+      const formalOwnership = Object.fromEntries(
+        roles.map((role) => [role, data.formalPercentByParty[role] / 100]),
+      );
       const canonical = JSON.stringify({
         version,
         address: data.address,
@@ -180,10 +194,13 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
         `Startdag: ${data.startDate}`,
         `Startvärde: ${data.startValueKr} kr`,
         `Bolån: ${data.initialLoanKr} kr`,
-        `Caesars kapitalinsats: ${data.caesarCapitalKr} kr`,
-        `Felicias kapitalinsats: ${data.feliciaCapitalKr} kr`,
-        `Formell ägarandel Caesar: ${data.caesarFormalPercent} %`,
-        `Formell ägarandel Felicia: ${data.feliciaFormalPercent} %`,
+        ...members.map(
+          (member) => `Kapitalinsats ${member.display_name}: ${startUnits[member.party_id]} kr`,
+        ),
+        ...members.map(
+          (member) =>
+            `Formell ägarandel ${member.display_name}: ${data.formalPercentByParty[member.party_id]} %`,
+        ),
       ].join("\n");
 
       const [property] = await sql<{ id: string }[]>`
@@ -211,7 +228,7 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
           created_by, reason
         ) values (
           ${agreement.id}, ${version}, ${data.startDate}, ${kr(data.startValueKr)},
-          ${kr(data.initialLoanKr)}, ${data.caesarCapitalKr + data.feliciaCapitalKr},
+          ${kr(data.initialLoanKr)}, ${Object.values(startUnits).reduce((a, b) => a + b, 0)},
           ${sql.json(startUnits)}, ${sql.json(formalOwnership)}, ${documentMd}, ${checksum},
           ${user.id}, ${version === 1 ? "Startuppgifter registrerade av parterna" : "Korrigerat utkast före start"}
         ) returning id

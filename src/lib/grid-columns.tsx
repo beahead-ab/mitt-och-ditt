@@ -11,7 +11,6 @@ import {
   type Transaction,
 } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtEnheter, fmtKr } from "@/lib/format";
-import { PARTY_LABELS } from "@/lib/seed";
 
 const STATUS_LABEL: Record<Transaction["status"], string> = {
   draft: "Utkast",
@@ -36,9 +35,14 @@ const kr = (ore: number) => fmtKr(toKronor(ore));
 /** Nollor visas som tankstreck, precis som i ett välskött kalkylark. */
 const krOrDash = (ore: number) => (ore === 0 ? "–" : kr(ore));
 
-function partyName(party: PartyId) {
-  return PARTY_LABELS[party] ?? party;
-}
+/**
+ * Hur en part skrivs ut. Skickas in av den som bygger kolumnerna, eftersom
+ * namnen hör till hushållet och inte till rutnätet. Utan namngivare visas
+ * partsnyckeln, vilket är sant men torftigt.
+ */
+export type PartyName = (party: PartyId) => string;
+
+const nyckelnSjalv: PartyName = (party) => party;
 
 function gross(tx: Transaction, parties: readonly PartyId[]) {
   return parties.reduce((sum, p) => sum + (tx.payments[p]?.gross ?? 0), 0);
@@ -67,6 +71,7 @@ function net(tx: Transaction, parties: readonly PartyId[]) {
 export function transactionColumns(
   agreement: AgreementParams,
   rules: CostCategoryRule[],
+  partyName: PartyName = nyckelnSjalv,
 ): GridColumn<Transaction>[] {
   const parties = agreement.parties;
 
@@ -210,7 +215,10 @@ export function transactionColumns(
  * Dagsberäkningen. Speglar avräkningsarkets beräkningskolumner, som annars är
  * dolda i arket, så att varje enhetsöverföring går att följa steg för steg.
  */
-export function dayEventColumns(agreement: AgreementParams): GridColumn<DayEvent>[] {
+export function dayEventColumns(
+  agreement: AgreementParams,
+  partyName: PartyName = nyckelnSjalv,
+): GridColumn<DayEvent>[] {
   const parties = agreement.parties;
 
   return [

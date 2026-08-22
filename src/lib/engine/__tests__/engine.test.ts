@@ -575,3 +575,58 @@ describe("Makulering", () => {
     expect(reasons.T3).toBe("Utkast");
   });
 });
+
+describe("Partsnycklarna är nycklar, inte namn", () => {
+  /**
+   * Tjänsten ska kunna användas av vilket par som helst. Nycklarna 'caesar' och
+   * 'felicia' är det första hushållets, inget annat - de står som nycklar inuti
+   * transaktionernas payments och avtalets start_units, och motorn slår upp på
+   * dem. Ett par som heter något annat måste få exakt samma räkning.
+   */
+  function körning(a: string, b: string) {
+    return calculate({
+      agreement: {
+        ...AGREEMENT,
+        parties: [a, b],
+        startUnits: { [a]: 1_200_000, [b]: 180_000 },
+      },
+      endpoint: flatEndpoint(),
+      categoryRules: RULES,
+      transactions: [
+        tx({ id: "T1", payments: { [a]: { gross: kr(12_000) } } }),
+        tx({ id: "T2", category: "BRF-avgift", payments: { [b]: { gross: kr(4_850) } } }),
+      ],
+    });
+  }
+
+  it("ger samma utfall oavsett vad parterna heter", () => {
+    const först = körning(CAESAR, FELICIA);
+    const sedan = körning("nora", "idris");
+
+    expect(sedan.finalUnits.nora).toBe(först.finalUnits[CAESAR]);
+    expect(sedan.finalUnits.idris).toBe(först.finalUnits[FELICIA]);
+    expect(sedan.finalShares.nora).toBe(först.finalShares[CAESAR]);
+    expect(sedan.settlement.finalPosition.nora).toBe(först.settlement.finalPosition[CAESAR]);
+    expect(sedan.settlement.finalPosition.idris).toBe(först.settlement.finalPosition[FELICIA]);
+    expect(sedan.outside.balance.nora).toBe(först.outside.balance[CAESAR]);
+    expect(sedan.settlement.checks.positionsBalance).toBe(0);
+    // Och ingenting i utfallet nämner det första hushållets nycklar.
+    expect(Object.keys(sedan.finalUnits).sort()).toEqual(["idris", "nora"]);
+  });
+
+  it("räknar lika även när nycklarna sorterar tvärtom mot namnen", () => {
+    // 'a' sorterar före 'z', men parternas ordning kommer ur avtalet - inte ur
+    // hur nycklarna råkar sorteras. Annars skulle utfallet bero på stavning.
+    const framlänges = körning("aaa", "zzz");
+    const baklänges = körning("zzz", "aaa");
+
+    // Den först uppräknade parten får samma enheter i båda körningarna, trots
+    // att nycklarna sorterar tvärtom. Ingen magisk konstant här: poängen är att
+    // de två körningarna är varandras spegel, inte vilket talet råkar bli.
+    expect(framlänges.finalUnits.aaa).toBe(baklänges.finalUnits.zzz);
+    expect(framlänges.finalUnits.zzz).toBe(baklänges.finalUnits.aaa);
+    expect(framlänges.finalUnits.aaa).toBeGreaterThan(1_200_000);
+    expect(framlänges.settlement.checks.positionsBalance).toBe(0);
+    expect(baklänges.settlement.checks.positionsBalance).toBe(0);
+  });
+});

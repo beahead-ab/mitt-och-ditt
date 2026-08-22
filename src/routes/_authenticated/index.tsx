@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { ExportMenu } from "@/components/export-menu";
-import { useHousehold } from "@/components/household-context";
+import { useHousehold, usePartyName } from "@/components/household-context";
 import { isDemo } from "@/lib/demo";
 import { reconciliationState } from "@/lib/reconciliation.functions";
 import { useExports } from "@/hooks/use-exports";
@@ -24,7 +24,7 @@ import { useAttachmentReferences } from "@/hooks/use-attachments";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtKr } from "@/lib/format";
-import { PARTY_LABELS, SEED_FORMAL_OWNERSHIP } from "@/lib/seed";
+import { SEED_FORMAL_OWNERSHIP } from "@/lib/seed";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({ meta: [{ title: "Översikt – Mitt & Ditt" }] }),
@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function Overview() {
   const { household } = useHousehold();
+  const partyName = usePartyName();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
 
   // Avstämningen läses ur databasen, inte gissas ur posterna. Räknades den från
@@ -118,7 +119,7 @@ function Overview() {
           <div className="mt-3 grid gap-3">
             {agreement.parties.map((party) => (
               <div key={party} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm">{PARTY_LABELS[party] ?? party}</span>
+                <span className="text-sm">{partyName(party)}</span>
                 <span className="tabular font-serif text-xl font-medium">
                   {fmtAndel(result.finalShares[party])}
                 </span>
@@ -136,7 +137,7 @@ function Overview() {
           <div className="mt-3 grid gap-3">
             {agreement.parties.map((party) => (
               <div key={party} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm">{PARTY_LABELS[party] ?? party}</span>
+                <span className="text-sm">{partyName(party)}</span>
                 <span className="tabular font-serif text-xl font-medium">
                   {SEED_FORMAL_OWNERSHIP[party] == null
                     ? "–"
@@ -226,7 +227,7 @@ function Overview() {
               .filter((p) => result.claims[p] > 0)
               .map(
                 (p) =>
-                  `${PARTY_LABELS[p] ?? p} har ${fmtKr(toKronor(result.claims[p]))} som inte kunnat omvandlas till andelsenheter.`,
+                  `${partyName(p)} har ${fmtKr(toKronor(result.claims[p]))} som inte kunnat omvandlas till andelsenheter.`,
               )
               .join(" ")}{" "}
             Beloppet regleras i kronor vid slutavräkningen.
@@ -243,7 +244,7 @@ function Overview() {
           <div className="mt-3 grid gap-2">
             {agreement.parties.map((party) => (
               <div key={party} className="flex items-baseline justify-between gap-3 text-sm">
-                <span>{PARTY_LABELS[party] ?? party}</span>
+                <span>{partyName(party)}</span>
                 <span className="tabular">
                   {result.outside.balance[party] === 0
                     ? "±0 kr"
@@ -281,7 +282,7 @@ function Overview() {
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {event.overpayer
-                      ? `${PARTY_LABELS[event.overpayer] ?? event.overpayer} överbetalade ${fmtKr(toKronor(event.overpayment))} och fick ${new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 2 }).format(event.transferredUnits)} andelsenheter.`
+                      ? `${partyName(event.overpayer)} överbetalade ${fmtKr(toKronor(event.overpayment))} och fick ${new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 2 }).format(event.transferredUnits)} andelsenheter.`
                       : "Kostnaden fördelades enligt kostnadsnyckeln utan överbetalning."}
                   </p>
                 </li>

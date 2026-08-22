@@ -1,7 +1,7 @@
+import { usePartyName } from "@/components/household-context";
 import { Badge } from "@/components/ui/badge";
 import { toKronor, type Transaction } from "@/lib/engine";
 import { fmtDate, fmtKr } from "@/lib/format";
-import { PARTY_LABELS } from "@/lib/seed";
 
 const STATUS: Record<
   Transaction["status"],
@@ -23,6 +23,9 @@ export function TransactionList({
   parties: string[];
   empty: string;
 }) {
+  // Före den tidiga returen: en hook får inte hoppas över.
+  const partyName = usePartyName();
+
   if (transactions.length === 0) {
     return (
       <div className="tile-surface p-8 text-center">
@@ -51,7 +54,7 @@ export function TransactionList({
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
               <span className="tabular">{tx.id}</span>
               <span>{fmtDate(tx.paymentDate)}</span>
-              <span>Betalt av {payers.map((p) => PARTY_LABELS[p] ?? p).join(" och ") || "–"}</span>
+              <span>Betalt av {payers.map((p) => partyName(p)).join(" och ") || "–"}</span>
               <Badge variant={STATUS[tx.status].variant} className="text-[0.7rem]">
                 {STATUS[tx.status].label}
               </Badge>

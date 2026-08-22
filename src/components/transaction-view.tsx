@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 
 import { DataGrid } from "@/components/data-grid";
+import { usePartyName } from "@/components/household-context";
 import { TransactionList } from "@/components/transaction-list";
 import type { AgreementParams, CostCategoryRule, Transaction } from "@/lib/engine";
 import { transactionColumns } from "@/lib/grid-columns";
 import { fieldHistory, type RecordVersion } from "@/lib/revisions";
-import { PARTY_LABELS } from "@/lib/seed";
 
 /**
  * Transaktionerna som matris på skärmar med plats, och som kortlista på
@@ -27,7 +27,8 @@ export function TransactionView({
   empty: string;
   onActivate?: (tx: Transaction) => void;
 }) {
-  const columns = transactionColumns(agreement, rules);
+  const partyName = usePartyName();
+  const columns = transactionColumns(agreement, rules, partyName);
 
   // Cellens historik härleds ur postens versioner med samma formatering som
   // rutnätet visar, så historiken kan aldrig säga emot det synliga värdet.
@@ -51,7 +52,7 @@ export function TransactionView({
           rowKey={(tx) => tx.id}
           onActivate={onActivate}
           cellHistory={revisions ? cellHistory : undefined}
-          personName={(id) => PARTY_LABELS[id] ?? id}
+          personName={partyName}
           rowTone={(tx) =>
             tx.status === "approved" ? "default" : tx.status === "disputed" ? "attention" : "muted"
           }

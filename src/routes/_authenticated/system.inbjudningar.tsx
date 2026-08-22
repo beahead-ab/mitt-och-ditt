@@ -51,6 +51,8 @@ function InvitesPage() {
     enabled: !isDemo,
   });
 
+  const valtHushall = (households.data ?? []).find((h) => h.id === householdId) ?? null;
+
   const create = useMutation({
     mutationFn: () => createInvite({ data: { householdId, email, displayName, partyId } }),
     onSuccess: (result) => {
@@ -136,7 +138,14 @@ function InvitesPage() {
             >
               <div className="grid gap-1.5">
                 <Label htmlFor="household">Hushåll</Label>
-                <Select value={householdId} onValueChange={setHouseholdId}>
+                <Select
+                  value={householdId}
+                  onValueChange={(id) => {
+                    setHouseholdId(id);
+                    // Rollen hör till ett visst hushåll och följer inte med.
+                    setPartyId("");
+                  }}
+                >
                   <SelectTrigger id="household">
                     <SelectValue placeholder="Välj hushåll" />
                   </SelectTrigger>
@@ -170,15 +179,25 @@ function InvitesPage() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="partyId">Partsroll</Label>
-                <Input
-                  id="partyId"
-                  value={partyId}
-                  onChange={(event) => setPartyId(event.target.value.toLowerCase())}
-                  placeholder="caesar"
-                  required
-                />
+                <Select value={partyId} onValueChange={setPartyId} disabled={!valtHushall}>
+                  <SelectTrigger id="partyId">
+                    <SelectValue placeholder={valtHushall ? "Välj roll" : "Välj hushåll först"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(valtHushall?.partyIds ?? []).map((roll) => {
+                      const upptagenAv = valtHushall?.members.find((m) => m.partyId === roll);
+                      return (
+                        <SelectItem key={roll} value={roll} disabled={Boolean(upptagenAv)}>
+                          {roll}
+                          {upptagenAv ? ` \u00b7 upptagen av ${upptagenAv.name}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  Stabilt ID som beräkningen använder. Ändras aldrig efteråt.
+                  Hushållets två roller. Nyckeln som beräkningen använder, och som aldrig ändras
+                  efteråt - namnet står i fältet ovanför.
                 </p>
               </div>
               <div className="sm:col-span-2">
