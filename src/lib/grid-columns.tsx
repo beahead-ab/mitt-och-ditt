@@ -146,16 +146,29 @@ export function transactionColumns(
       header: "Skatteeffekt",
       width: 8,
       numeric: true,
-      text: (tx) => krOrDash(taxEffect(tx, parties)),
+      // Texten bär märkningen den också: den används vid kopiering och av
+      // skärmläsare, och där finns ingen färg att luta sig mot.
+      text: (tx) => {
+        const amount = taxEffect(tx, parties);
+        if (amount === 0) return "–";
+        const preliminary = parties.some((p) => tx.payments[p]?.taxPreliminary);
+        return preliminary ? `${kr(amount)} prel.` : kr(amount);
+      },
       sortValue: (tx) => taxEffect(tx, parties),
       render: (tx) => {
         const amount = taxEffect(tx, parties);
         const preliminary = parties.some((p) => tx.payments[p]?.taxPreliminary);
         if (amount === 0) return "–";
+        if (!preliminary) return kr(amount);
+        // Färgen behålls, men ett ord läggs till. En nyans ensam säger
+        // ingenting till den som inte skiljer guld från grått - och ingenting
+        // alls till den som gör det men inte vet vad guld betyder.
         return (
-          <span className={preliminary ? "text-[color:var(--data-gold)]" : undefined}>
-            {kr(amount)}
-            {preliminary ? " *" : ""}
+          <span
+            className="text-[color:var(--data-gold)]"
+            title="Preliminär skatteeffekt. Rättas när det slutliga beskedet kommit (avtal 11.4)."
+          >
+            {kr(amount)} <span className="text-[0.85em]">prel.</span>
           </span>
         );
       },

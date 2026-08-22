@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy } from "lucide-react";
+import { Copy, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isDemo } from "@/lib/demo";
-import { fmtDateTime } from "@/lib/format";
+import { useHouseholdData } from "@/hooks/use-household-data";
+import { fmtAndel, fmtDateTime } from "@/lib/format";
 import {
   createPartnerInvite,
   listPartnerInvites,
@@ -26,21 +27,20 @@ export const Route = createFileRoute("/_authenticated/overenskommelse/parter")({
 function Pageoverenskommelseparter() {
   const queryClient = useQueryClient();
   const { household } = useHousehold();
+  const { agreement } = useHouseholdData();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [link, setLink] = useState<string | null>(null);
 
-  const missingParty = household
-    ? (["caesar", "felicia"] as const).find(
-        (partyId) => !household.parties.some((party) => party.partyId === partyId),
-      )
-    : undefined;
-
-  useEffect(() => {
-    if (missingParty && !displayName) {
-      setDisplayName(missingParty === "felicia" ? "Felicia" : "Caesar");
-    }
-  }, [displayName, missingParty]);
+  // Frågan är om en plats står tom, inte vilken roll som saknas. Rollen
+  // bestäms på servern ur hushållets egna två - klienten ska inte kunna välja
+  // den, och kan inte heller veta vad de heter.
+  //
+  // Den gamla kontrollen letade efter rollnamnen 'caesar' och 'felicia'. I ett
+  // hushåll med andra roller hittades ingen av dem, så formuläret visades även
+  // när båda parter redan fanns - och servern avvisade med ett fel som såg ut
+  // att komma från ingenstans.
+  const platsLedig = (household?.parties.length ?? 0) < 2;
 
   const invites = useQuery({
     queryKey: ["partner-invites", household?.id],
@@ -95,21 +95,40 @@ function Pageoverenskommelseparter() {
                     <p className="text-sm font-medium">{party.name}</p>
                     <p className="text-xs text-muted-foreground">Partsroll {party.partyId}</p>
                   </div>
-                  <Badge variant="secondary">Ansluten</Badge>
+                  <div className="flex items-center gap-3">
+                    {/* Formell ägarandel hör till parten, inte till bostaden -
+                        därför står den här och inte på översikten, där den tog
+                        halva bredden för att visa två tankstreck. */}
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Formell ägarandel</p>
+                      <p className="tabular text-sm font-medium">
+                        {agreement?.formalOwnership?.[party.partyId] === undefined
+                          ? "–"
+                          : fmtAndel(agreement.formalOwnership[party.partyId])}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">Ansluten</Badge>
+                  </div>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
+              <span>
+                Den formella ägarandelen följer köpehandlingen och föreningens uppgifter. Den är
+                låst av avtalet och ändras bara genom giltig överlåtelse – den hålls helt åtskild
+                från de interna ekonomiska andelarna. Saknas den fylls den i med startuppgifterna.
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
               Ingen kan godkänna för den andra. Personnummer lagras inte i tjänsten.
             </p>
           </section>
 
-          {!isDemo && missingParty && (
+          {!isDemo && platsLedig && (
             <section className="tile-surface p-5">
               <p className="eyebrow mb-1">Bjud in motparten</p>
-              <h2 className="text-lg font-medium">
-                Bjud in {missingParty === "felicia" ? "Felicia" : "Caesar"}
-              </h2>
+              <h2 className="text-lg font-medium">Bjud in den andra parten</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Du kan bara bjuda in den saknade motparten till det här hushållet. Länken gäller i
                 sju dagar.
