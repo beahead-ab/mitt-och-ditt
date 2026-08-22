@@ -15,28 +15,14 @@ const credentials = z.object({
 export const signIn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => credentials.parse(input))
   .handler(async ({ data }) => {
-    const { owner } = await import("@/lib/db/client.server");
-    const { verifyPassword } = await import("./password");
+    const { autentisera } = await import("./login.server");
     const { pruneSessions, startSession } = await import("./session.server");
 
-    const rows = await owner()<
-      { id: string; password_hash: string | null; disabled_at: Date | null }[]
-    >`
-      select id, password_hash, disabled_at from users where lower(email) = ${data.email}
-    `;
-    const user = rows[0];
-
-    // Samma svar oavsett om kontot finns eller lösenordet är fel, så att
-    // svaret inte avslöjar vilka e-postadresser som har konto.
-    const ok = user?.password_hash
-      ? !user.disabled_at && (await verifyPassword(data.password, user.password_hash))
-      : false;
-    if (!ok || !user) {
-      throw new Error("Fel e-postadress eller lösenord.");
-    }
+    const ip = getRequestHeader("x-forwarded-for") ?? getRequestHeader("x-real-ip") ?? undefined;
+    const { userId } = await autentisera(data.email, data.password, ip);
 
     await pruneSessions();
-    await startSession(user.id, getRequestHeader("user-agent") ?? undefined);
+    await startSession(userId, getRequestHeader("user-agent") ?? undefined);
     return { ok: true as const };
   });
 

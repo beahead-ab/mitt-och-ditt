@@ -76,3 +76,17 @@ export async function verifyPassword(password: string, stored: string): Promise<
     return false;
   }
 }
+
+/**
+ * En riktig hash av ett slumpat lösenord, att jämföra mot när kontot inte finns.
+ *
+ * Utan den skulle ett okänt konto svara direkt medan ett känt konto först
+ * körde scrypt, och skillnaden i svarstid räckte för att lista ut vilka
+ * adresser som har konto. Hashen räknas fram en gång och återanvänds.
+ */
+let dummy: Promise<string> | undefined;
+
+export function dummyHash(): Promise<string> {
+  if (!dummy) dummy = hashPassword(randomBytes(32).toString("base64"));
+  return dummy;
+}

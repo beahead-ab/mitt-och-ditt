@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Home as HomeIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -73,6 +73,11 @@ function AuthPage() {
               {busy ? "Loggar in …" : "Logga in"}
             </Button>
           </form>
+          <p className="mt-4 text-sm">
+            <Link to="/glomt" className="text-primary underline underline-offset-4">
+              Glömt lösenordet?
+            </Link>
+          </p>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
             Tjänsten är endast för inbjudna. Saknar du konto behöver du en inbjudningslänk.
           </p>
