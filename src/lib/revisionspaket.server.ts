@@ -106,9 +106,13 @@ export async function byggRevisionspaket(
           join users u on u.id = v.created_by
           left join document_approvals d
                  on d.entity_type = 'agreement_version' and d.entity_id = v.id
+         -- Här begränsas medvetet inte till det boende som gäller nu:
+         -- revisionsunderlaget ska bära hela historiken, även tidigare
+         -- bostäder. Ordningen följer kedjan först, annars flätas två
+         -- boendens versionsnummer om varandra.
          where a.household_id = ${data.householdId}
-         group by v.id, u.name
-         order by v.version
+         group by v.id, u.name, a.created_at
+         order by a.created_at, v.version
       `;
 
     filer.push({

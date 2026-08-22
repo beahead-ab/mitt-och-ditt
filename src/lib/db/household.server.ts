@@ -163,8 +163,10 @@ async function readAgreement(
     select v.start_date, v.start_value_ore, v.initial_loan_ore, v.total_units,
            v.start_units, v.formal_ownership
     from agreement_versions v
-    join agreements a on a.id = v.agreement_id
-    where a.household_id = ${householdId} and v.effective_at is not null
+    -- Det boende som gäller nu. Med en boendekedja finns flera avtal, och
+    -- "högsta versionsnumret i hushållet" skulle blanda ihop två bostäder.
+    where v.agreement_id = current_agreement_id(${householdId})
+      and v.effective_at is not null
     order by v.version desc limit 1
   `;
   const row = rows[0];

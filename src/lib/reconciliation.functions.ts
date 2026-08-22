@@ -137,8 +137,8 @@ export const reconciliationState = createServerFn({ method: "GET" })
       // Startpunkten: senast avslutade avstämning, annars avtalets startdag.
       const [avtal] = await sql<{ start_date: string }[]>`
         select v.start_date from agreement_versions v
-          join agreements a on a.id = v.agreement_id
-         where a.household_id = ${data.householdId} and v.effective_at is not null
+         where v.agreement_id = current_agreement_id(${data.householdId})
+           and v.effective_at is not null
          order by v.version desc limit 1
       `;
 
@@ -179,8 +179,8 @@ export const startReconciliation = createServerFn({ method: "POST" })
          order by period_end desc limit 1`;
       const [avtal] = await sql<{ start_date: string }[]>`
         select v.start_date from agreement_versions v
-          join agreements a on a.id = v.agreement_id
-         where a.household_id = ${data.householdId} and v.effective_at is not null
+         where v.agreement_id = current_agreement_id(${data.householdId})
+           and v.effective_at is not null
          order by v.version desc limit 1`;
 
       const start = senaste?.period_end ?? avtal?.start_date ?? iso(new Date());

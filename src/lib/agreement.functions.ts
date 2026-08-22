@@ -30,8 +30,9 @@ export const pendingAgreement = createServerFn({ method: "GET" })
       >`
         select v.id, v.version, v.start_date, v.start_value_ore, v.initial_loan_ore,
                v.total_units, v.start_units, v.formal_ownership, v.checksum, v.reason
-        from agreement_versions v join agreements a on a.id = v.agreement_id
-        where a.household_id = ${data.householdId} and v.effective_at is null
+        from agreement_versions v
+        where v.agreement_id = current_agreement_id(${data.householdId})
+          and v.effective_at is null
         order by v.version desc limit 1
       `;
       const version = rows[0];
@@ -335,9 +336,8 @@ export const listAgreementVersions = createServerFn({ method: "GET" })
                v.document_md, v.created_at, v.effective_at, v.addendum_id,
                u.name as created_by_name
           from agreement_versions v
-          join agreements a on a.id = v.agreement_id
           join users u on u.id = v.created_by
-         where a.household_id = ${data.householdId}
+         where v.agreement_id = current_agreement_id(${data.householdId})
          order by v.version asc
       `;
       if (rows.length === 0) return [];
@@ -453,10 +453,9 @@ export const listAddenda = createServerFn({ method: "GET" })
                u.name as created_by_name,
                v.id as version_id, v.version as version_number
           from agreement_addenda t
-          join agreements a on a.id = t.agreement_id
           join users u on u.id = t.created_by
           left join agreement_versions v on v.addendum_id = t.id
-         where a.household_id = ${data.householdId}
+         where t.agreement_id = current_agreement_id(${data.householdId})
          order by t.created_at desc
       `;
       if (rows.length === 0) return [];
