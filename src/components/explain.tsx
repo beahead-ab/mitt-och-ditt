@@ -14,6 +14,12 @@ import { EXAMPLES, type ExampleKey } from "@/lib/examples";
 /**
  * "Vad betyder detta?" – varje modellbegrepp ska kunna öppnas och förklaras
  * med ett konkret exempel, på enkel svenska.
+ *
+ * Med `label` blir avtryckaren en synlig textlänk i stället för en
+ * frågetecken-ikon. Ikonen är 14 px, har mindre träffyta än ett finger behöver,
+ * och säger inte att det finns ett framräknat exempel bakom. Räkneexemplen är
+ * tjänstens starkaste pedagogik och ska inte vara gömda - så textlänk är
+ * förstahandsvalet, och ikonen finns kvar där den står inne i en tät rad.
  */
 export function Explain({
   term,
@@ -21,6 +27,7 @@ export function Explain({
   example,
   worked,
   reference,
+  label,
   children,
 }: {
   term: string;
@@ -29,15 +36,21 @@ export function Explain({
   /** Räkneexempel ur avtalets bilaga 1, framräknat av beräkningsmotorn. */
   worked?: ExampleKey;
   reference?: string;
+  /** Synlig text på avtryckaren. Utan den visas frågetecken-ikonen. */
+  label?: string;
   children?: ReactNode;
 }) {
   return (
     <Dialog>
       <DialogTrigger
-        className="inline-flex items-center text-muted-foreground transition-colors hover:text-foreground"
-        aria-label={`Vad betyder ${term}?`}
+        className={
+          label
+            ? "text-left text-sm text-primary underline underline-offset-4"
+            : "inline-flex items-center text-muted-foreground transition-colors hover:text-foreground"
+        }
+        aria-label={label ? undefined : `Vad betyder ${term}?`}
       >
-        <HelpCircle className="size-3.5" />
+        {label ?? <HelpCircle className="size-3.5" />}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

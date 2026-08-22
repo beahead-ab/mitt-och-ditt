@@ -1,50 +1,42 @@
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { Home as HomeIcon, LogOut, Menu } from "lucide-react";
+import { ChevronDown, Home as HomeIcon, LogOut, Menu } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useHousehold } from "@/components/household-context";
 import { SectionTabs } from "@/components/section-tabs";
+import { useMyParty } from "@/hooks/use-my-party";
+import { useMyTurn } from "@/hooks/use-my-turn";
 import { signOut as endSession } from "@/lib/auth/auth.functions";
 import { isDemo } from "@/lib/demo";
 
-type NavItem = { to: string; label: string; adminOnly?: boolean };
+type NavItem = { to: string; label: string };
 
-/** Exakt sju huvudval – inga underlänkar i menyn. */
+/**
+ * De fem sektionerna som är parets arbete.
+ *
+ * Mitt konto och Systemadmin ligger inte här: de är inte något paret gör
+ * tillsammans, och att blanda in dem gjorde navigationen till en lista över
+ * allt som finns i stället för en över vad man kan göra. De når man genom
+ * kontomenyn till höger.
+ */
 const NAV: NavItem[] = [
   { to: "/", label: "Översikt" },
   { to: "/transaktioner", label: "Transaktioner" },
   { to: "/overenskommelse", label: "Överenskommelse" },
   { to: "/simulator", label: "Simulator" },
-  { to: "/forsaljning", label: "Försäljning & utköp" },
-  { to: "/konto", label: "Mitt konto" },
-  { to: "/system/anvandare", label: "Systemadmin", adminOnly: true },
+  { to: "/forsaljning", label: "Försäljning" },
 ];
 
-const CRUMBS: { match: string; label: string }[] = [
-  { match: "/transaktioner/vantar", label: "Väntar på godkännande" },
-  { match: "/transaktioner/historik", label: "Historik" },
-  { match: "/transaktioner/avstamning", label: "Kvartalsavstämning" },
-  { match: "/transaktioner", label: "Registrera" },
-  { match: "/overenskommelse/kostnadsslag", label: "Kostnadsslag" },
-  { match: "/overenskommelse/versioner", label: "Avtalsversioner" },
-  { match: "/overenskommelse/tillagg", label: "Tilläggsavtal" },
-  { match: "/overenskommelse/parter", label: "Parter" },
-  { match: "/overenskommelse", label: "Gällande överenskommelse" },
-  { match: "/simulator", label: "Simulator" },
-  { match: "/forsaljning/varderingar", label: "Värderingar" },
-  { match: "/forsaljning/slutavrakning", label: "Slutavräkning" },
-  { match: "/forsaljning", label: "Försäljning & utköp" },
-  { match: "/konto", label: "Mitt konto" },
-  { match: "/system/mail", label: "Mailstatus" },
-  { match: "/system/revision", label: "Revisionsunderlag" },
-  { match: "/system", label: "Systemadmin" },
-];
-
-/** Sidor som är personliga eller globala – där visas ingen hushållsrad. */
-function isPersonal(pathname: string) {
-  return pathname.startsWith("/konto") || pathname.startsWith("/system");
-}
+const KONTO: NavItem[] = [{ to: "/konto", label: "Mitt konto" }];
+const ADMIN: NavItem[] = [{ to: "/system/anvandare", label: "Systemadmin" }];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { household, isAdmin } = useHousehold();
@@ -53,28 +45,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const { count: minTur } = useMyTurn();
+  const myPartyId = useMyParty();
+
+  // Förnamnet räcker och håller knappen smal. Utan part - innan hushållet
+  // finns - står det neutralt "Mitt konto".
+  const jag = household?.parties.find((party) => party.partyId === myPartyId)?.name;
+  const förnamn = jag?.split(" ")[0];
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Under en pågående navigation pekar location på målet medan children
   // fortfarande är föregående sidas element. Rendera då ett neutralt tomt
-  // lager i stället för att blanda ny header/flikrad med gammalt innehåll.
+  // lager i stället för att blanda ny header med gammalt innehåll.
   const resolvedPathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? s.location.pathname,
   });
   const isTransitioning = resolvedPathname !== pathname;
 
-  // Stäng menyn så fort routen ändras (även vid back/forward).
+  // Stäng lådan så fort routen ändras (även vid back/forward).
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  // Förladda menyroutes kod när menyn öppnas.
+  // Förladda sektionernas kod. Nu när de syns hela tiden är det troligt att
+  // någon av dem är nästa steg, oavsett om lådan öppnats.
   useEffect(() => {
-    if (!open) return;
-    for (const item of NAV) {
+    for (const item of [...NAV, ...KONTO]) {
       void router.preloadRoute({ to: item.to }).catch(() => {});
     }
-  }, [open, router]);
+  }, [router]);
 
   // Spacern ska alltid matcha den fixerade headerns höjd exakt.
   useLayoutEffect(() => {
@@ -104,10 +103,39 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 top-0 z-40 border-b border-hairline bg-background/95 backdrop-blur"
       >
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex shrink-0 items-center gap-2">
             <HomeIcon className="size-4 text-primary" />
             <span className="font-serif text-base font-medium tracking-tight">Mitt &amp; Ditt</span>
           </Link>
+
+          {/* Sektionerna syns direkt på skärmar med plats. Under 768 px finns
+              de i lådan i stället - en rad med fem poster får inte plats där
+              utan att bli för trång att träffa. */}
+          <nav aria-label="Sektioner" className="ml-6 hidden items-center gap-1 md:flex">
+            {NAV.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                preload="intent"
+                data-testid={`nav-${item.to}`}
+                className="flex items-center gap-1.5 px-2.5 py-[18px] text-sm text-muted-foreground transition-colors hover:text-foreground"
+                activeProps={{
+                  className: "font-medium text-foreground shadow-[inset_0_-2px_0_var(--copper)]",
+                }}
+                activeOptions={{ exact: item.to === "/" }}
+              >
+                {item.label}
+                {item.to === "/transaktioner" && minTur > 0 && (
+                  <span
+                    data-testid="nav-min-tur"
+                    className="tabular inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground"
+                  >
+                    {minTur}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-2">
             {isDemo && (
@@ -115,33 +143,69 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Demoläge
               </span>
             )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="konto-meny"
+                  className="hidden h-8 gap-1 px-2.5 text-[13px] font-normal md:inline-flex"
+                >
+                  {förnamn ?? "Mitt konto"}
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {[...KONTO, ...(isAdmin ? ADMIN : [])].map((item) => (
+                  <DropdownMenuItem key={item.to} asChild>
+                    <Link to={item.to} preload="intent">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void signOut()}>
+                  <LogOut className="size-3.5" /> Logga ut
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 shrink-0"
+              className="relative size-8 shrink-0 md:hidden"
               onClick={() => setOpen((v) => !v)}
               aria-label="Meny"
             >
               <Menu className="size-4" />
+              {minTur > 0 && (
+                <span className="absolute right-1 top-1 size-2 rounded-full bg-primary" />
+              )}
             </Button>
           </div>
         </div>
 
         {open && (
-          <nav className="border-t border-hairline bg-card">
+          <nav className="border-t border-hairline bg-card md:hidden">
             <div className="mx-auto max-w-5xl px-4 py-3">
               <div className="grid gap-0.5">
-                {NAV.filter((item) => !item.adminOnly || isAdmin).map((item) => (
+                {[...NAV, ...KONTO, ...(isAdmin ? ADMIN : [])].map((item) => (
                   <Link
                     key={item.to}
                     to={item.to}
                     preload="intent"
                     onClick={() => setOpen(false)}
-                    className="rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
                     activeProps={{ className: "bg-secondary font-medium" }}
                     activeOptions={{ exact: item.to === "/" }}
                   >
                     {item.label}
+                    {item.to === "/transaktioner" && minTur > 0 && (
+                      <span className="tabular inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                        {minTur}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -159,36 +223,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div aria-hidden style={{ height: headerHeight }} />
 
       <main data-testid="app-main" className="mx-auto max-w-5xl px-4 py-8">
-        <ContextCrumb pathname={pathname} householdName={household?.name ?? null} />
-        <SectionTabs />
         {isTransitioning ? <div data-testid="route-transition" aria-hidden /> : children}
       </main>
     </div>
   );
 }
 
-function ContextCrumb({
-  pathname,
-  householdName,
-}: {
-  pathname: string;
-  householdName: string | null;
-}) {
-  if (pathname === "/") return null;
-  const crumb = CRUMBS.find((c) => pathname === c.match || pathname.startsWith(`${c.match}/`));
-  if (!crumb) return null;
-
-  const parts = isPersonal(pathname)
-    ? [crumb.label]
-    : [householdName ?? "Inget hushåll", crumb.label];
-
-  return (
-    <p className="mb-3 text-xs text-muted-foreground" data-testid="context-crumb">
-      {parts.join(" → ")}
-    </p>
-  );
-}
-
+/**
+ * Sidhuvudet, med sektionens flikrad under rubriken.
+ *
+ * Flikarna låg tidigare ovanför rubriken, vilket gjorde att sidan började med
+ * en rad val i stället för med vad sidan handlar om. Nu står rubriken först
+ * och flikarna säger var i sektionen man är.
+ */
 export function PageHeader({
   eyebrow,
   title,
@@ -203,17 +250,20 @@ export function PageHeader({
   info?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <div className="flex items-center gap-1.5">
-          <h1 className="truncate text-2xl font-medium tracking-tight sm:text-3xl">{title}</h1>
-          {info}
+    <>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          <div className="flex items-center gap-1.5">
+            <h1 className="truncate text-2xl font-medium tracking-tight sm:text-3xl">{title}</h1>
+            {info}
+          </div>
+          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
         </div>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        {action}
       </div>
-      {action}
-    </div>
+      <SectionTabs />
+    </>
   );
 }
 

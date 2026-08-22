@@ -1,41 +1,49 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertTriangle, Clock, FileWarning, Receipt, Scale } from "lucide-react";
+import { CalendarClock, FileWarning, Receipt, Scale } from "lucide-react";
 import { useMemo } from "react";
 
 import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { ExportMenu } from "@/components/export-menu";
 import { useHousehold, usePartyName } from "@/components/household-context";
-import { isDemo } from "@/lib/demo";
-import { reconciliationState } from "@/lib/reconciliation.functions";
-import { useExports } from "@/hooks/use-exports";
 import { NoAgreement } from "@/components/no-agreement";
 import { NoHousehold } from "@/components/no-household";
-import { StatusCard } from "@/components/status-card";
+import { Räknare, StatusCard } from "@/components/status-card";
 import { Badge } from "@/components/ui/badge";
-import {
-  defaultEndpoint,
-  disputedTransactions,
-  missingReceipts,
-  pendingTransactions,
-  run,
-} from "@/lib/calculation";
+import { Button } from "@/components/ui/button";
 import { useAttachmentReferences } from "@/hooks/use-attachments";
+import { useExports } from "@/hooks/use-exports";
 import { useHouseholdData } from "@/hooks/use-household-data";
+import { useMyParty } from "@/hooks/use-my-party";
+import { useMyTurn } from "@/hooks/use-my-turn";
+import { defaultEndpoint, missingReceipts, run } from "@/lib/calculation";
+import { isDemo } from "@/lib/demo";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtKr } from "@/lib/format";
-import { SEED_FORMAL_OWNERSHIP } from "@/lib/seed";
+import { reconciliationState } from "@/lib/reconciliation.functions";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({ meta: [{ title: "Översikt – Mitt & Ditt" }] }),
   component: Overview,
 });
 
+/** Procentenheter, med tecken. En andelsförändring är alltid liten och alltid viktig. */
+function fmtProcentenheter(delta: number): string {
+  const pe = delta * 100;
+  const tecken = pe >= 0 ? "+" : "−";
+  return `${tecken}${new Intl.NumberFormat("sv-SE", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(Math.abs(pe))} pe`;
+}
+
 function Overview() {
   const { household, emailVerified, isLoading: laddarHushall } = useHousehold();
   const partyName = usePartyName();
+  const myPartyId = useMyParty();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
+  const minTur = useMyTurn();
 
   // Avstämningen läses ur databasen, inte gissas ur posterna. Räknades den från
   // senaste transaktionen kunde återkommande betalningar skjuta upp den hur
@@ -53,6 +61,24 @@ function Overview() {
     const end = defaultEndpoint(agreement, rules, transactions);
     return { endpoint: end, result: run(agreement, rules, transactions, end) };
   }, [agreement, rules, transactions]);
+
+  // Vad ett godkännande faktiskt innebär, räknat i samma motor som avräkningen.
+  // Beslutsvyn ska svara på frågan den ställer: inte "godkänner du?" utan
+  // "godkänner du det här, och vad blir din andel då?".
+  const konsekvens = useMemo(() => {
+    const post = minTur.items[0];
+    if (!post || !agreement || !computed || !myPartyId) return null;
+
+    const medPosten = transactions.map((tx) =>
+      tx.id === post.transaction.id ? { ...tx, status: "approved" as const } : tx,
+    );
+    const slut = defaultEndpoint(agreement, rules, medPosten);
+    const efter = run(agreement, rules, medPosten, slut);
+
+    const före = computed.result.finalShares[myPartyId];
+    const nu = efter.finalShares[myPartyId];
+    return { post, andelEfter: nu, delta: nu - före };
+  }, [minTur.items, agreement, rules, transactions, computed, myPartyId]);
 
   // Utan hushåll finns ingenting att visa läget för. Då är översikten
   // uppstarten i stället - den som skapat sitt konto själv ska mötas av nästa
@@ -76,203 +102,197 @@ function Overview() {
   }
 
   const { result, endpoint } = computed;
-  const [a, b] = agreement.parties;
-  const pending = pendingTransactions(transactions);
-  const disputed = disputedTransactions(transactions);
+  const parties = agreement.parties;
+  const jag = myPartyId ?? parties[0];
+  const motpart = parties.find((p) => p !== jag) ?? parties[1];
+
   const missing = missingReceipts(agreement, transactions, withAttachment);
-  const lastEvent = result.events[result.events.length - 1];
   const netEquity = endpoint.endValue - endpoint.endLoan;
-  const claimsTotal = result.claims[a] + result.claims[b];
+  const claimsTotal = parties.reduce((sum, p) => sum + result.claims[p], 0);
+  const minPosition = result.settlement.finalPosition[jag];
+  const minAndel = result.finalShares[jag];
+  const utanförSaldo = result.outside.balance[jag] ?? 0;
 
   return (
     <>
       <PageHeader
-        eyebrow="Läget nu"
-        title={household?.propertyAddress ?? "Bostaden"}
-        description={
-          endpoint.mode === "prognos"
-            ? `Prognos: avräkning ${fmtDate(endpoint.endDate)} med oförändrat värde. Ändra antagandet i simulatorn.`
-            : "Slutavräkning med fastställda uppgifter."
-        }
+        eyebrow={household?.propertyAddress ?? "Bostaden"}
+        title="Om ni avräknar idag"
         action={
           <div className="flex items-center gap-2">
             <Badge variant={endpoint.mode === "prognos" ? "secondary" : "default"}>
-              {endpoint.mode === "prognos" ? "Prognos" : "Slutavräkning"}
+              {endpoint.mode === "prognos" ? "Prognos · oförändrat värde" : "Slutavräkning"}
             </Badge>
             <ExportMenu
               groups={[{ title: "Läget nu", choices: summaryExports(result, endpoint) }]}
             />
           </div>
         }
-        info={<Explain {...TERMS.prognos} />}
       />
 
-      <section className="tile-surface mb-6 p-5 sm:p-6">
-        <div className="flex items-center gap-1.5">
-          <p className="eyebrow">Nettokapital</p>
-          <Explain {...TERMS.nettokapital} />
-        </div>
-        <p className="hero-number mt-1">{fmtKr(toKronor(netEquity))}</p>
-        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-          <Figure label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} />
-          <Figure
-            label={endpoint.mode === "prognos" ? "Antaget slutvärde" : "Fastställt slutvärde"}
-            value={fmtKr(toKronor(endpoint.endValue))}
-          />
-          <Figure label="Bolån" value={fmtKr(toKronor(endpoint.endLoan))} />
-        </dl>
-      </section>
-
-      <section className="mb-6 grid gap-4 sm:grid-cols-2">
-        <div className="tile-surface p-5">
-          <div className="flex items-center gap-1.5">
-            <p className="eyebrow">Intern ekonomisk andel</p>
-            <Explain {...TERMS.internAndel} />
+      <div className="mb-6 grid gap-4 lg:grid-cols-2">
+        {/* Min position först. Nettokapitalet är bostadens tal; det här är mitt. */}
+        <section className="tile-surface p-5 sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="eyebrow">Din del, {partyName(jag)}</p>
+            <p className="tabular text-sm text-muted-foreground">
+              {fmtAndel(minAndel)} av {fmtKr(toKronor(result.settlement.saleNet))}
+            </p>
           </div>
-          <div className="mt-3 grid gap-3">
-            {agreement.parties.map((party) => (
-              <div key={party} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm">{partyName(party)}</span>
-                <span className="tabular font-serif text-xl font-medium">
-                  {fmtAndel(result.finalShares[party])}
-                </span>
-              </div>
-            ))}
+          <p className="hero-number mt-1" data-testid="min-position">
+            {fmtKr(toKronor(minPosition))}
+          </p>
+
+          <Andelsstapel andel={minAndel} />
+
+          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span>
+              {partyName(jag)} {fmtAndel(minAndel)}
+            </span>
+            {motpart && (
+              <span className="text-muted-foreground">
+                {partyName(motpart)} {fmtAndel(result.finalShares[motpart])} ·{" "}
+                {fmtKr(toKronor(result.settlement.finalPosition[motpart]))}
+              </span>
+            )}
           </div>
-          <p className="mt-4 border-t border-hairline pt-3 text-xs leading-relaxed text-muted-foreground">
-            Den interna ekonomiska andelen används bara i avräkningen mellan parterna. Den ändrar
-            inte den formella ägarandelen i bostadsrätten.
-          </p>
-        </div>
 
-        <div className="tile-surface p-5">
-          <p className="eyebrow">Formell ägarandel</p>
-          <div className="mt-3 grid gap-3">
-            {agreement.parties.map((party) => (
-              <div key={party} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm">{partyName(party)}</span>
-                <span className="tabular font-serif text-xl font-medium">
-                  {SEED_FORMAL_OWNERSHIP[party] == null
-                    ? "–"
-                    : fmtAndel(SEED_FORMAL_OWNERSHIP[party] as number)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 border-t border-hairline pt-3 text-xs leading-relaxed text-muted-foreground">
-            Följer köpehandlingen och föreningens uppgifter. Fylls i separat och ändras bara genom
-            giltig överlåtelse.
-          </p>
-        </div>
-      </section>
+          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-hairline pt-3 text-sm">
+            <Figure label="Nettokapital" value={fmtKr(toKronor(netEquity))} />
+            <Figure
+              label={endpoint.mode === "prognos" ? "Antaget värde" : "Slutvärde"}
+              value={fmtKr(toKronor(endpoint.endValue))}
+            />
+            <Figure label="Bolån" value={fmtKr(toKronor(endpoint.endLoan))} />
+          </dl>
 
-      <section className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatusCard
-          icon={Clock}
-          label="Väntar på godkännande"
-          value={pending.length}
-          hint={pending.length === 0 ? "Inget att göra" : "Påverkar inte andelarna än"}
-          tone={pending.length > 0 ? "attention" : "neutral"}
-          to="/transaktioner/vantar"
-        />
-        <StatusCard
-          icon={AlertTriangle}
-          label="Tvistiga poster"
-          value={disputed.length}
-          hint={disputed.length === 0 ? "Inga invändningar" : "Står utanför beräkningen"}
-          tone={disputed.length > 0 ? "attention" : "neutral"}
-          to="/transaktioner/historik"
-        />
-        <StatusCard
-          icon={FileWarning}
-          label="Saknade underlag"
-          value={missing.length}
-          hint={missing.length === 0 ? "Alla större poster har underlag" : "Komplettera kvitton"}
-          tone={missing.length > 0 ? "attention" : "neutral"}
-          to="/transaktioner/historik"
-        />
-        <StatusCard
-          icon={Receipt}
-          label="Preliminär skatt"
-          value={result.preliminaryTaxCount}
-          hint={
-            result.preliminaryTaxCount === 0
-              ? "Inga preliminära poster"
-              : "Rätta när beskedet kommit"
-          }
-          tone={result.preliminaryTaxCount > 0 ? "attention" : "neutral"}
-          to="/transaktioner/historik"
-        />
-      </section>
-
-      {avstamning.data && (avstamning.data.overdue || avstamning.data.open) && (
-        <section className="mb-6 rounded-md border border-hairline bg-secondary/60 p-4">
-          <p className="eyebrow">
-            {avstamning.data.overdue ? "Dags för avstämning" : "Avstämning påbörjad"}
-          </p>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Nästa avstämning ska vara gjord senast {fmtDate(avstamning.data.nextDueOn)}.
-            {avstamning.data.waitingFor.length > 0 &&
-              ` Väntar på ${avstamning.data.waitingFor
-                .map((p) => household?.parties.find((x) => x.partyId === p)?.name ?? p)
-                .join(", ")}.`}
-          </p>
-          <p className="mt-2 text-sm">
-            <Link
-              to="/transaktioner/avstamning"
-              className="text-primary underline underline-offset-4"
-            >
-              Gå till avstämningen
-            </Link>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            {utanförSaldo !== 0 && (
+              <>
+                {utanförSaldo > 0
+                  ? `Plus ${fmtKr(toKronor(utanförSaldo))} du ligger ute med utanför enhetsmodellen. `
+                  : `Minus ${fmtKr(toKronor(-utanförSaldo))} du ska betala utanför enhetsmodellen. `}
+              </>
+            )}
+            <Explain {...TERMS.internAndel} label="Så räknas det fram" />
           </p>
         </section>
-      )}
+
+        {konsekvens ? (
+          <DinTur
+            konsekvens={konsekvens}
+            parties={parties}
+            partyName={partyName}
+            antal={minTur.count}
+          />
+        ) : (
+          <section className="tile-surface flex flex-col justify-center p-5 sm:p-6">
+            <p className="eyebrow">Inget väntar på dig</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              Allt som registrerats är avgjort. Nästa gång någon av er lägger in en betalning hamnar
+              den här tills båda tagit ställning.
+            </p>
+            <p className="mt-4 text-sm">
+              <Link to="/transaktioner" className="text-primary underline underline-offset-4">
+                Registrera en betalning
+              </Link>
+            </p>
+          </section>
+        )}
+      </div>
+
+      <section className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatusCard
+          icon={FileWarning}
+          state="Åtgärda"
+          tone={missing.length > 0 ? "attention" : "neutral"}
+          action={
+            missing.length > 0
+              ? {
+                  to: "/transaktioner/historik",
+                  search: { saknar: "underlag" },
+                  label: `Visa de ${missing.length === 1 ? "saknade" : missing.length} posterna`,
+                }
+              : undefined
+          }
+        >
+          {missing.length === 0 ? (
+            "Alla godkända poster över tusenlappen har underlag."
+          ) : (
+            <>
+              <Räknare>{missing.length}</Räknare> godkända poster över 1 000 kr saknar kvitto
+            </>
+          )}
+        </StatusCard>
+
+        <StatusCard
+          icon={Receipt}
+          state="Preliminärt"
+          tone={result.preliminaryTaxCount > 0 ? "attention" : "neutral"}
+          action={
+            result.preliminaryTaxCount > 0
+              ? {
+                  to: "/transaktioner/historik",
+                  search: { skatt: "preliminar" },
+                  label: "Rätta när beskedet kommit",
+                }
+              : undefined
+          }
+        >
+          {result.preliminaryTaxCount === 0 ? (
+            "Ingen post vilar på en preliminär skatteeffekt."
+          ) : (
+            <>
+              <Räknare>{result.preliminaryTaxCount}</Räknare> med preliminär skatteeffekt
+            </>
+          )}
+        </StatusCard>
+
+        <StatusCard
+          icon={CalendarClock}
+          state="Avstämning"
+          tone={avstamning.data?.overdue ? "attention" : "neutral"}
+          action={{ to: "/transaktioner/avstamning", label: "Stäm av tillsammans" }}
+        >
+          {avstamning.data?.overdue
+            ? `Inget registrerat sedan ${fmtDate(avstamning.data.nextDueOn)} – kvartalskontrollen är förfallen`
+            : avstamning.data
+              ? `Nästa avstämning senast ${fmtDate(avstamning.data.nextDueOn)}`
+              : "Kvartalskontrollen görs av er båda tillsammans"}
+        </StatusCard>
+      </section>
 
       {claimsTotal > 0 && (
         <section className="mb-6 rounded-md border border-[color:var(--data-gold)]/40 bg-[color:var(--data-gold)]/10 p-4">
           <div className="flex items-center gap-1.5">
             <Scale className="size-3.5 text-[color:var(--data-gold)]" />
             <p className="eyebrow">Personlig fordran</p>
-            <Explain {...TERMS.personligFordran} />
           </div>
           <p className="mt-1.5 text-sm">
-            {agreement.parties
+            {parties
               .filter((p) => result.claims[p] > 0)
               .map(
                 (p) =>
                   `${partyName(p)} har ${fmtKr(toKronor(result.claims[p]))} som inte kunnat omvandlas till andelsenheter.`,
               )
               .join(" ")}{" "}
-            Beloppet regleras i kronor vid slutavräkningen.
+            Beloppet regleras i kronor vid slutavräkningen.{" "}
+            <Explain {...TERMS.personligFordran} label="Varför blir det så?" />
           </p>
         </section>
       )}
 
-      {result.outside.entries.length > 0 && (
-        <section className="tile-surface mb-6 p-5">
-          <div className="flex items-center gap-1.5">
-            <p className="eyebrow">Utanför enhetsmodellen</p>
-            <Explain {...TERMS.utanforModellen} />
-          </div>
-          <div className="mt-3 grid gap-2">
-            {agreement.parties.map((party) => (
-              <div key={party} className="flex items-baseline justify-between gap-3 text-sm">
-                <span>{partyName(party)}</span>
-                <span className="tabular">
-                  {result.outside.balance[party] === 0
-                    ? "±0 kr"
-                    : result.outside.balance[party] > 0
-                      ? `ligger ute med ${fmtKr(toKronor(result.outside.balance[party]))}`
-                      : `ska betala ${fmtKr(toKronor(-result.outside.balance[party]))}`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       <section>
-        <p className="eyebrow mb-3">Senaste händelserna</p>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="eyebrow">Så har andelen ändrats</p>
+          <Link
+            to="/transaktioner/historik"
+            className="text-sm text-primary underline underline-offset-4"
+          >
+            Hela historiken
+          </Link>
+        </div>
+
         {result.events.length === 0 ? (
           <div className="tile-surface p-8 text-center">
             <p className="text-sm font-medium">Inga godkända transaktioner än</p>
@@ -281,36 +301,149 @@ function Overview() {
             </p>
           </div>
         ) : (
-          <ul className="grid gap-2">
-            {[...result.events]
-              .reverse()
-              .slice(0, 5)
-              .map((event) => (
-                <li key={event.date} className="tile-surface p-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium">{fmtDate(event.date)}</span>
-                    <span className="tabular text-xs text-muted-foreground">
-                      {event.transactionIds.join(", ")}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {event.overpayer
-                      ? `${partyName(event.overpayer)} överbetalade ${fmtKr(toKronor(event.overpayment))} och fick ${new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 2 }).format(event.transferredUnits)} andelsenheter.`
-                      : "Kostnaden fördelades enligt kostnadsnyckeln utan överbetalning."}
-                  </p>
-                </li>
-              ))}
-          </ul>
+          <div className="tile-surface overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-b border-hairline text-left">
+                  <Th>Dag</Th>
+                  <Th>Vad hände</Th>
+                  <Th right>Överbetalning</Th>
+                  <Th right>Din andel efter</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...result.events]
+                  .reverse()
+                  .slice(0, 5)
+                  .map((event) => (
+                    <tr key={event.date} className="border-b border-hairline last:border-0">
+                      <Td>{fmtDate(event.date)}</Td>
+                      <Td>
+                        {event.overpayer
+                          ? `${partyName(event.overpayer)} betalade mer än sin del`
+                          : "Kostnaden fördelades enligt nyckeln"}{" "}
+                        <span className="text-muted-foreground">
+                          · {event.transactionIds.join(", ")}
+                        </span>
+                      </Td>
+                      <Td right>
+                        {event.overpayer
+                          ? `${partyName(event.overpayer)} ${fmtKr(toKronor(event.overpayment))}`
+                          : "–"}
+                      </Td>
+                      <Td right>{fmtAndel(event.sharesAfter[jag])}</Td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      {lastEvent && (
-        <p className="mt-6 text-xs text-muted-foreground">
-          Beräkningsmotor {result.engineVersion}. Andelarna räknas om från startdagen varje gång
-          antagandet eller underlaget ändras.
+      <p className="mt-6 text-xs text-muted-foreground">
+        Beräkningsmotor {result.engineVersion} · räknas om från startdagen{" "}
+        {fmtDate(agreement.startDate)}
+      </p>
+    </>
+  );
+}
+
+/**
+ * Andelsstapeln.
+ *
+ * En förändring på några tiondels procentenheter syns inte i en stapel, och
+ * ska inte göra det - stapeln säger storleksordningen, siffrorna säger exakt
+ * vad som gäller.
+ */
+function Andelsstapel({ andel }: { andel: number }) {
+  return (
+    <div
+      className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-[oklch(0.86_0.06_45)]"
+      role="img"
+      aria-label={`Din andel: ${fmtAndel(andel)}`}
+    >
+      <div
+        className="h-full rounded-full bg-primary"
+        style={{ width: `${Math.max(0, Math.min(1, andel)) * 100}%` }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Beslutet med sin konsekvens.
+ *
+ * Kortet visade tidigare bara att något väntade. Frågan man ställer sig är en
+ * annan: vad blir min andel om jag godkänner? Svaret räknas i samma motor som
+ * avräkningen, så det som står här är samma tal som kommer att gälla.
+ */
+function DinTur({
+  konsekvens,
+  parties,
+  partyName,
+  antal,
+}: {
+  konsekvens: {
+    post: {
+      transaction: {
+        id: string;
+        category: string;
+        description?: string;
+        payments: Record<string, { gross?: number } | undefined>;
+      };
+      registeredByPartyId: string;
+    };
+    andelEfter: number;
+    delta: number;
+  };
+  parties: readonly string[];
+  partyName: (id: string) => string;
+  antal: number;
+}) {
+  const { post, andelEfter, delta } = konsekvens;
+  const tx = post.transaction;
+  const total = parties.reduce((sum, p) => sum + (tx.payments[p]?.gross ?? 0), 0);
+
+  return (
+    <section
+      data-testid="din-tur"
+      className="rounded-[var(--radius)] border border-primary bg-card p-5 sm:p-6"
+    >
+      <p className="eyebrow text-primary">Din tur</p>
+      <p className="mt-1.5 font-serif text-lg font-medium leading-snug">
+        {partyName(post.registeredByPartyId)} har registrerat en post du inte tagit ställning till.
+      </p>
+
+      <div className="mt-4 rounded-md border border-hairline p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-sm font-medium">
+            {tx.category}
+            {tx.description ? ` · ${tx.description}` : ""}
+          </span>
+          <span className="tabular font-serif text-lg font-medium">{fmtKr(toKronor(total))}</span>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Godkänner du blir din andel{" "}
+          <span className="tabular font-medium text-foreground">{fmtAndel(andelEfter)}</span> (
+          {fmtProcentenheter(delta)}).
+        </p>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button asChild className="h-11 flex-1 sm:flex-none">
+          <Link to="/transaktioner/vantar">Granska och godkänn</Link>
+        </Button>
+        <Button asChild variant="outline" className="h-11">
+          <Link to="/transaktioner/vantar">Invänd</Link>
+        </Button>
+      </div>
+
+      {antal > 1 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {antal - 1} till väntar på ditt ställningstagande.
         </p>
       )}
-    </>
+    </section>
   );
 }
 
@@ -318,7 +451,21 @@ function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="tabular mt-0.5 text-base font-medium">{value}</dd>
+      <dd className="tabular mt-0.5 font-medium">{value}</dd>
     </div>
   );
+}
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th
+      className={`px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-[oklch(0.35_0.02_60)] ${right ? "text-right" : ""}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return <td className={`px-4 py-3 ${right ? "tabular text-right" : ""}`}>{children}</td>;
 }

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { History, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 
 import { PageHeader } from "@/components/app-shell";
 import { DataGrid } from "@/components/data-grid";
@@ -22,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useHouseholdData } from "@/hooks/use-household-data";
-import { defaultEndpoint, run } from "@/lib/calculation";
+import { defaultEndpoint, missingReceipts, run } from "@/lib/calculation";
+import { useAttachmentReferences } from "@/hooks/use-attachments";
 import { NoAgreement } from "@/components/no-agreement";
 import {
   compareDates,
@@ -34,8 +36,25 @@ import { fmtDateTime } from "@/lib/format";
 import { dayEventColumns } from "@/lib/grid-columns";
 import { recordsAsOf, timeline, type RecordVersion } from "@/lib/revisions";
 
+/**
+ * Filter i adressfältet.
+ *
+ * Översiktens kort säger "Visa de fem posterna" och ska landa i just de fem,
+ * inte i en ofiltrerad matris med sexton kolumner där man själv får leta. Att
+ * filtret ligger i adressen gör det dessutom delbart: den ena parten kan
+ * skicka länken till den andra.
+ */
+const filterSchema = z.object({
+  saknar: z.literal("underlag").optional(),
+  status: z.literal("tvistig").optional(),
+  skatt: z.literal("preliminar").optional(),
+});
+
+export type Historikfilter = z.infer<typeof filterSchema>;
+
 export const Route = createFileRoute("/_authenticated/transaktioner/historik")({
   head: () => ({ meta: [{ title: "Historik – Mitt & Ditt" }] }),
+  validateSearch: filterSchema,
   component: HistoryPage,
 });
 
@@ -71,6 +90,8 @@ function HistoryFor({
   revisions: Map<string, RecordVersion<Transaction>[]>;
 }) {
   /** null = nuläget. Annars den tidpunkt underlaget visas som det såg ut då. */
+  const filter = Route.useSearch();
+  const medBilaga = useAttachmentReferences();
   const [asOf, setAsOf] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const { household } = useHousehold();
@@ -105,6 +126,24 @@ function HistoryFor({
     const rows = asOf ? recordsAsOf(revisions, asOf) : transactions;
     return [...rows].sort((x, y) => compareDates(y.paymentDate, x.paymentDate));
   }, [asOf, revisions, transactions]);
+
+  // Filtret gäller vad som listas, aldrig vad som räknas. Beräkningen nedanför
+  // ska visa hushållets faktiska läge även när man tittar på ett urval - annars
+  // skulle en filtrerad vy se ut som en annan verklighet.
+  const filtrerade = useMemo(() => {
+    let rader = shown;
+    if (filter.status === "tvistig") rader = rader.filter((t) => t.status === "disputed");
+    if (filter.skatt === "preliminar") {
+      rader = rader.filter((t) => agreement.parties.some((p) => t.payments[p]?.taxPreliminary));
+    }
+    if (filter.saknar === "underlag") {
+      const saknar = new Set(missingReceipts(agreement, rader, medBilaga).map((t) => t.id));
+      rader = rader.filter((t) => saknar.has(t.id));
+    }
+    return rader;
+  }, [shown, filter, agreement, medBilaga]);
+
+  const filtrerat = Object.values(filter).some(Boolean);
 
   const selectedTransaction = transactions.find((t) => t.id === selected) ?? null;
 
@@ -164,8 +203,38 @@ function HistoryFor({
         </p>
       )}
 
+      {filtrerat && (
+        <div
+          data-testid="historikfilter"
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm"
+        >
+          <span>
+            Visar {filtrerade.length} av {shown.length} poster:{" "}
+            {[
+              filter.saknar === "underlag" && "saknar underlag",
+              filter.status === "tvistig" && "tvistiga",
+              filter.skatt === "preliminar" && "preliminär skatteeffekt",
+            ]
+              .filter(Boolean)
+              .join(", ")}
+            .
+          </span>
+          <span className="text-muted-foreground">
+            Beräkningen nedanför gäller hela underlaget, inte urvalet.
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7"
+            onClick={() => navigate({ to: "/transaktioner/historik", search: {} })}
+          >
+            Visa alla
+          </Button>
+        </div>
+      )}
+
       <TransactionView
-        transactions={shown}
+        transactions={filtrerade}
         agreement={agreement}
         rules={rules}
         revisions={asOf ? undefined : revisions}
