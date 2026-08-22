@@ -35,6 +35,7 @@ const CRUMBS: { match: string; label: string }[] = [
   { match: "/forsaljning/slutavrakning", label: "Slutavräkning" },
   { match: "/forsaljning", label: "Försäljning & utköp" },
   { match: "/konto", label: "Mitt konto" },
+  { match: "/system/mail", label: "Mailstatus" },
   { match: "/system/revision", label: "Revisionsunderlag" },
   { match: "/system", label: "Systemadmin" },
 ];

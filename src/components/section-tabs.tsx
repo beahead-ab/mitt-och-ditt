@@ -37,6 +37,7 @@ export const SECTIONS: Section[] = [
       { to: "/system/anvandare", label: "Användare" },
       { to: "/system/hushall", label: "Hushåll" },
       { to: "/system/inbjudningar", label: "Inbjudningar" },
+      { to: "/system/mail", label: "Mailstatus" },
       { to: "/system/revision", label: "Revisionsunderlag" },
     ],
   },

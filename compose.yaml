@@ -32,9 +32,49 @@ services:
       - SEED_ADMIN_EMAIL
       - SEED_CAESAR_EMAIL
       - SEED_FELICIA_EMAIL
+      # Mailinställningarna finns även här, inte bara på mail-tjänsten: ett
+      # svep går att köra för hand med docker compose exec app, och utan dem
+      # hade det tyst använt fel transport.
+      - MAIL_DISPATCH_INTERVAL_SECONDS
+      - MAIL_QUEUE_ENCRYPTION_KEY
+      - MAIL_TRANSPORT
+      - MAIL_FROM
+      - MAIL_REPLY_TO
+      - SMTP_HOST
+      - SMTP_PORT
+      - SMTP_SECURE
+      - SMTP_USER
+      - SMTP_PASSWORD
     volumes:
       # Bilagor ligger utanför containern så att de överlever en omstart.
       - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Avsändaren av mail. Egen process med flit: webbservern bundlas även för
+  # webbläsaren och kan inte hysa serverkod, och på en liten maskin ska en
+  # bakgrundsloop inte konkurrera om minnet med det som svarar användarna.
+  # Startas med: docker compose --profile mail up -d
+  mail:
+    image: mitt-och-ditt:latest
+    profiles: ["mail"]
+    restart: unless-stopped
+    command: ["node", ".output/scripts/mail.mjs", "--loop"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://mittochditt:${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD}@db:5432/mittochditt
+      - APP_URL=${APP_URL:-https://mittochditt.goodstuff.se}
+      - MAIL_DISPATCH_INTERVAL_SECONDS=${MAIL_DISPATCH_INTERVAL_SECONDS:-30}
+      - MAIL_QUEUE_ENCRYPTION_KEY
+      - MAIL_TRANSPORT
+      - MAIL_FROM
+      - MAIL_REPLY_TO
+      - SMTP_HOST
+      - SMTP_PORT
+      - SMTP_SECURE
+      - SMTP_USER
+      - SMTP_PASSWORD
     depends_on:
       db:
         condition: service_healthy

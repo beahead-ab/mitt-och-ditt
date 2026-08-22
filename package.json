@@ -15,7 +15,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "admin:losenord": "tsx scripts/set-password.ts",
-    "build:scripts": "esbuild scripts/seed.ts scripts/migrate.ts scripts/set-password.ts --bundle --platform=node --target=node22 --format=esm --outdir=.output/scripts --out-extension:.js=.mjs"
+    "mail:skicka": "tsx scripts/mail.ts",
+    "build:scripts": "esbuild scripts/seed.ts scripts/migrate.ts scripts/set-password.ts scripts/mail.ts --bundle --platform=node --target=node22 --format=esm --outdir=.output/scripts --out-extension:.js=.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -60,6 +61,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.575.0",
+    "nodemailer": "^9.0.5",
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
@@ -78,6 +80,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/node": "^22.16.5",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",

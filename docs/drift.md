@@ -368,6 +368,43 @@ crontab -e
 Skriptet dumpar databasen och packar bilagorna, och rensar kopior äldre än
 30 dagar. Testa en återställning innan ni börjar registrera på riktigt.
 
+### 5.10 E-post
+
+Tjänsten skickar mail genom en utkorg i databasen. Användarens handling lyckas
+även när mailservern är nere: raden ligger kvar och försöks igen med växande
+väntetid, och ger upp efter sex försök.
+
+Avsändaren är en **egen process**, inte en tråd i webbservern. Webbservern
+bundlas även för webbläsaren och kan inte hysa serverkod, och på en liten maskin
+ska en bakgrundsloop inte konkurrera om minnet med det som svarar användarna.
+
+```sh
+# Löpande avsändare, som egen tjänst
+docker compose --profile mail up -d
+
+# Ett svep för hand, till exempel efter en driftsättning
+docker compose exec app node .output/scripts/mail.mjs
+```
+
+Inställningarna sätts i `.env` på servern och finns beskrivna i `.env.example`.
+`MAIL_QUEUE_ENCRYPTION_KEY` skapas med `openssl rand -base64 32` och ska vara en
+egen slumpad nyckel, skild från databasens lösenord.
+
+Utan `MAIL_TRANSPORT` används SMTP. Det är med flit: en glömd variabel ska göra
+tjänsten tyst-trasig, inte få den att skicka på riktigt när någon trodde att den
+var i testläge.
+
+**Innehållet är oåtkomligt.** Ett köat mail kan bära en inbjudnings- eller
+återställningslänk. Den ligger krypterad i en egen tabell som radnivåsäkerheten
+stänger helt för applikationsrollen – varken parterna eller administratören kan
+läsa den, bara avsändaren genom ägarrollen. Så snart mailet gått fram, eller gett
+upp, raderas innehållet.
+
+Under **Systemadmin → Mailstatus** syns tidpunkt, mottagare, mall, status,
+antal försök och en kort felkod. Aldrig innehållet, aldrig en token. Ett mail som
+gett upp kan köas om därifrån, förutsatt att innehållet inte redan städats bort;
+har det gjort det måste handlingen göras om, till exempel med en ny inbjudan.
+
 ## 6. Flytta tjänsten någon annanstans
 
 1. `deploy/backup.sh` på den gamla servern.

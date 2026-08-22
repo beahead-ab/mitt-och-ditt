@@ -26,6 +26,7 @@ import { Route as AuthenticatedOverenskommelseVersionerRouteImport } from './rou
 import { Route as AuthenticatedSystemAnvandareRouteImport } from './routes/_authenticated/system.anvandare'
 import { Route as AuthenticatedSystemHushallRouteImport } from './routes/_authenticated/system.hushall'
 import { Route as AuthenticatedSystemInbjudningarRouteImport } from './routes/_authenticated/system.inbjudningar'
+import { Route as AuthenticatedSystemMailRouteImport } from './routes/_authenticated/system.mail'
 import { Route as AuthenticatedSystemRevisionRouteImport } from './routes/_authenticated/system.revision'
 import { Route as AuthenticatedTransaktionerIndexRouteImport } from './routes/_authenticated/transaktioner.index'
 import { Route as AuthenticatedTransaktionerHistorikRouteImport } from './routes/_authenticated/transaktioner.historik'
@@ -128,6 +129,11 @@ const AuthenticatedSystemInbjudningarRoute =
     path: '/system/inbjudningar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSystemMailRoute = AuthenticatedSystemMailRouteImport.update({
+  id: '/system/mail',
+  path: '/system/mail',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSystemRevisionRoute =
   AuthenticatedSystemRevisionRouteImport.update({
     id: '/system/revision',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/system/mail': typeof AuthenticatedSystemMailRoute
   '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/system/mail': typeof AuthenticatedSystemMailRoute
   '/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/_authenticated/system/anvandare': typeof AuthenticatedSystemAnvandareRoute
   '/_authenticated/system/hushall': typeof AuthenticatedSystemHushallRoute
   '/_authenticated/system/inbjudningar': typeof AuthenticatedSystemInbjudningarRoute
+  '/_authenticated/system/mail': typeof AuthenticatedSystemMailRoute
   '/_authenticated/system/revision': typeof AuthenticatedSystemRevisionRoute
   '/_authenticated/transaktioner/historik': typeof AuthenticatedTransaktionerHistorikRoute
   '/_authenticated/transaktioner/vantar': typeof AuthenticatedTransaktionerVantarRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/system/anvandare'
     | '/system/hushall'
     | '/system/inbjudningar'
+    | '/system/mail'
     | '/system/revision'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/system/anvandare'
     | '/system/hushall'
     | '/system/inbjudningar'
+    | '/system/mail'
     | '/system/revision'
     | '/transaktioner/historik'
     | '/transaktioner/vantar'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/_authenticated/system/anvandare'
     | '/_authenticated/system/hushall'
     | '/_authenticated/system/inbjudningar'
+    | '/_authenticated/system/mail'
     | '/_authenticated/system/revision'
     | '/_authenticated/transaktioner/historik'
     | '/_authenticated/transaktioner/vantar'
@@ -442,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemInbjudningarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/mail': {
+      id: '/_authenticated/system/mail'
+      path: '/system/mail'
+      fullPath: '/system/mail'
+      preLoaderRoute: typeof AuthenticatedSystemMailRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system/revision': {
       id: '/_authenticated/system/revision'
       path: '/system/revision'
@@ -499,6 +518,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemAnvandareRoute: typeof AuthenticatedSystemAnvandareRoute
   AuthenticatedSystemHushallRoute: typeof AuthenticatedSystemHushallRoute
   AuthenticatedSystemInbjudningarRoute: typeof AuthenticatedSystemInbjudningarRoute
+  AuthenticatedSystemMailRoute: typeof AuthenticatedSystemMailRoute
   AuthenticatedSystemRevisionRoute: typeof AuthenticatedSystemRevisionRoute
   AuthenticatedTransaktionerHistorikRoute: typeof AuthenticatedTransaktionerHistorikRoute
   AuthenticatedTransaktionerVantarRoute: typeof AuthenticatedTransaktionerVantarRoute
@@ -526,6 +546,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemAnvandareRoute: AuthenticatedSystemAnvandareRoute,
   AuthenticatedSystemHushallRoute: AuthenticatedSystemHushallRoute,
   AuthenticatedSystemInbjudningarRoute: AuthenticatedSystemInbjudningarRoute,
+  AuthenticatedSystemMailRoute: AuthenticatedSystemMailRoute,
   AuthenticatedSystemRevisionRoute: AuthenticatedSystemRevisionRoute,
   AuthenticatedTransaktionerHistorikRoute:
     AuthenticatedTransaktionerHistorikRoute,
