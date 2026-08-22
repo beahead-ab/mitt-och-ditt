@@ -11,6 +11,7 @@ import { isDemo } from "@/lib/demo";
 import { reconciliationState } from "@/lib/reconciliation.functions";
 import { useExports } from "@/hooks/use-exports";
 import { NoAgreement } from "@/components/no-agreement";
+import { NoHousehold } from "@/components/no-household";
 import { StatusCard } from "@/components/status-card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function Overview() {
-  const { household } = useHousehold();
+  const { household, emailVerified, isLoading: laddarHushall } = useHousehold();
   const partyName = usePartyName();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
 
@@ -52,6 +53,18 @@ function Overview() {
     const end = defaultEndpoint(agreement, rules, transactions);
     return { endpoint: end, result: run(agreement, rules, transactions, end) };
   }, [agreement, rules, transactions]);
+
+  // Utan hushåll finns ingenting att visa läget för. Då är översikten
+  // uppstarten i stället - den som skapat sitt konto själv ska mötas av nästa
+  // steg, inte av ett tomt rum.
+  if (!laddarHushall && !household) {
+    return (
+      <>
+        <PageHeader eyebrow="Välkommen" title="Kom igång" />
+        <NoHousehold emailVerified={emailVerified} />
+      </>
+    );
+  }
 
   if (!agreement || !computed) {
     return (

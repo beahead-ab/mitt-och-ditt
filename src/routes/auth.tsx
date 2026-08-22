@@ -79,7 +79,11 @@ function AuthPage() {
             </Link>
           </p>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Tjänsten är endast för inbjudna. Saknar du konto behöver du en inbjudningslänk.{" "}
+            Saknar du konto?{" "}
+            <Link to="/registrera" className="underline underline-offset-2">
+              Skapa ett
+            </Link>
+            .{" "}
             <Link to="/integritet" className="underline underline-offset-2">
               Så hanteras dina uppgifter
             </Link>

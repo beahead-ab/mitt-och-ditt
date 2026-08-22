@@ -109,10 +109,16 @@ export const acceptInvite = createServerFn({ method: "POST" })
       }
 
       const passwordHash = await hashPassword(data.password);
+      // Att lösa in en länk som skickats till adressen är samma bevis som
+      // bekräftelsemailet ger. Den som kommer in genom en inbjudan ska inte
+      // behöva bekräfta en gång till.
       const [user] = await tx<{ id: string }[]>`
-        insert into users (email, name, password_hash)
-        values (${invite.email}, ${data.name}, ${passwordHash})
-        on conflict (email) do update set name = excluded.name, password_hash = excluded.password_hash
+        insert into users (email, name, password_hash, email_verified_at)
+        values (${invite.email}, ${data.name}, ${passwordHash}, now())
+        on conflict (email) do update
+          set name = excluded.name,
+              password_hash = excluded.password_hash,
+              email_verified_at = coalesce(users.email_verified_at, now())
         returning id
       `;
 

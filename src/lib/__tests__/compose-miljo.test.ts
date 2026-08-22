@@ -103,6 +103,26 @@ describe("Skriptens miljövariabler når containern", () => {
     ).toEqual([]);
   });
 
+  it("skickar registreringens strömbrytare till containern, som enbart namn", () => {
+    // Den här variabeln avgör om vem som helst kan skapa ett konto. Saknas den
+    // i compose når den aldrig containern, och tjänsten står stängd hur mycket
+    // .env än säger true - eller, värre, någon lägger till den med ett
+    // standardvärde och öppnar den utan att mena det.
+    //
+    // Skrivs den som enbart namn blir den osatt i containern när .env saknar
+    // den, och koden håller stängt. Med ${REGISTRATION_OPEN:-} hade den blivit
+    // tom sträng, vilket också är stängt - men skillnaden är inte värd att
+    // förlita sig på när den ena riktningen släpper in främlingar.
+    const rad = composeRows.find((row) => row.name === "REGISTRATION_OPEN");
+
+    expect(
+      rad,
+      "compose.yaml ger inte REGISTRATION_OPEN till appcontainern. Utan den " +
+        "går registreringen inte att öppna i drift.",
+    ).toBeDefined();
+    expect(rad?.form).toBe("namn");
+  });
+
   it("skickar seed-värdena som enbart namn, aldrig med standardvärde", () => {
     // Skillnaden är inte kosmetisk. Enbart namn lämnar variabeln osatt i
     // containern när den saknas i .env, och skriptets egen standard gäller.

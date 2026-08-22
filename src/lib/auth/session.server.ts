@@ -10,6 +10,8 @@ export type SessionUser = {
   email: string;
   name: string;
   isAdmin: boolean;
+  /** Bekräftad adress krävs för att skapa ett hushåll eller bli part i ett. */
+  emailVerified: boolean;
 };
 
 /**
@@ -28,11 +30,13 @@ export async function readSession(): Promise<SessionUser | null> {
       email: string;
       name: string;
       is_admin: boolean;
+      email_verified_at: Date | null;
       expires_at: Date;
       disabled_at: Date | null;
     }[]
   >`
-    select s.user_id, s.expires_at, u.email, u.name, u.is_admin, u.disabled_at
+    select s.user_id, s.expires_at, u.email, u.name, u.is_admin, u.email_verified_at,
+           u.disabled_at
     from sessions s join users u on u.id = s.user_id
     where s.token_hash = ${hashToken(token)}
   `;
@@ -51,7 +55,13 @@ export async function readSession(): Promise<SessionUser | null> {
     where token_hash = ${hashToken(token)}
   `;
 
-  return { id: row.user_id, email: row.email, name: row.name, isAdmin: row.is_admin };
+  return {
+    id: row.user_id,
+    email: row.email,
+    name: row.name,
+    isAdmin: row.is_admin,
+    emailVerified: row.email_verified_at !== null,
+  };
 }
 
 export async function startSession(userId: string, userAgent?: string): Promise<void> {

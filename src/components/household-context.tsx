@@ -17,6 +17,8 @@ type HouseholdContextValue = {
   household: Household | null;
   households: Household[];
   isAdmin: boolean;
+  /** Bekräftad adress krävs för att skapa ett hushåll eller bli part i ett. */
+  emailVerified: boolean;
   isLoading: boolean;
 };
 
@@ -24,6 +26,7 @@ const HouseholdContext = createContext<HouseholdContextValue>({
   household: null,
   households: [],
   isAdmin: false,
+  emailVerified: false,
   isLoading: false,
 });
 
@@ -46,9 +49,11 @@ const DEMO: Household = {
 export function HouseholdProvider({
   children,
   isAdmin,
+  emailVerified,
 }: {
   userId: string;
   isAdmin: boolean;
+  emailVerified: boolean;
   children: ReactNode;
 }) {
   const query = useQuery({
@@ -63,6 +68,7 @@ export function HouseholdProvider({
     households,
     household: households[0] ?? null,
     isAdmin: isDemo ? true : isAdmin,
+    emailVerified: isDemo ? true : emailVerified,
     isLoading: !isDemo && query.isLoading,
   };
 

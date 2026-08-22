@@ -119,6 +119,8 @@ function valfri(params: Record<string, unknown>, namn: string): string | undefin
 export type MallNamn =
   | "inbjudan"
   | "inbjudan_ny"
+  | "bekrafta_epost"
+  | "konto_finns_redan"
   | "losenord_aterstall"
   | "losenord_bytt"
   | "motpart_accepterade"
@@ -144,7 +146,7 @@ export const MALLAR: Record<MallNamn, Mall> = {
         { slag: "knapp", text: "Skapa ditt konto", url: s(p, "url") },
         {
           slag: "not",
-          text: `Länken gäller till ${s(p, "giltigTill")} och kan bara användas en gång. Tjänsten är bara för inbjudna – ingen kan registrera sig själv.`,
+          text: `Länken gäller till ${s(p, "giltigTill")}, kan bara användas en gång och gäller bara din e-postadress.`,
         },
       ],
       "Din inbjudan till Mitt & Ditt",
@@ -165,6 +167,40 @@ export const MALLAR: Record<MallNamn, Mall> = {
         },
       ],
       "Ny inbjudan till Mitt & Ditt",
+    ),
+
+  bekrafta_epost: (p) =>
+    bygg(
+      "Bekräfta din e-postadress",
+      [
+        {
+          slag: "stycke",
+          text: `Hej ${s(p, "namn")}. Du har skapat ett konto i Mitt & Ditt, tjänsten där ni dokumenterar vad ni kommit överens om och håller reda på hur era interna andelar utvecklas. Bekräfta adressen så kommer du igång.`,
+        },
+        { slag: "knapp", text: "Bekräfta adressen", url: s(p, "url") },
+        {
+          slag: "not",
+          text: `Länken gäller till ${s(p, "giltigTill")}. Har du inte skapat något konto kan du strunta i det här mailet - utan bekräftelsen händer ingenting, och ingen kommer åt något i ditt namn.`,
+        },
+      ],
+      "Bekräfta din e-postadress hos Mitt & Ditt",
+    ),
+
+  konto_finns_redan: (p) =>
+    bygg(
+      "Du har redan ett konto",
+      [
+        {
+          slag: "stycke",
+          text: `Hej. Någon har försökt skapa ett konto med den här adressen, men den har redan ett. Var det du kan du logga in som vanligt - eller återställa lösenordet om du glömt det.`,
+        },
+        { slag: "knapp", text: "Logga in", url: s(p, "url") },
+        {
+          slag: "not",
+          text: "Var det inte du behöver du inte göra något. Ingen har kommit åt ditt konto, och inget nytt konto har skapats.",
+        },
+      ],
+      "Du har redan ett konto hos Mitt & Ditt",
     ),
 
   losenord_aterstall: (p) =>

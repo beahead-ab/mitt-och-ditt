@@ -32,6 +32,8 @@ services:
       - SEED_ADMIN_EMAIL
       - SEED_CAESAR_EMAIL
       - SEED_FELICIA_EMAIL
+      # Samma skäl som ovan: skrivs som enbart namn. Osatt betyder stängd.
+      - REGISTRATION_OPEN
       # Mailinställningarna finns även här, inte bara på mail-tjänsten: ett
       # svep går att köra för hand med docker compose exec app, och utan dem
       # hade det tyst använt fel transport.

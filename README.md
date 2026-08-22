@@ -163,7 +163,9 @@ Byte av lösenord kräver det nuvarande och loggar ut alla andra enheter.
 
 ## Säkerhet
 
-Tjänsten är endast för inbjudna – det finns ingen öppen registrering. Lösenord
+Registreringen är stängd om inget annat sägs och öppnas med REGISTRATION_OPEN.
+Ett konto kan inte göra något förrän adressen är bekräftad: varken skapa ett
+hushåll eller bli part i ett. Lösenord
 hashas med scrypt, och sessions- och inbjudningstoken lagras bara som hash, så en
 läckt databasdump ger ingen tillgång.
 

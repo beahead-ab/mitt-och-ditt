@@ -491,6 +491,47 @@ redacted_at is null`.
 Anteckna datum och utfall. Går något inte att återställa är det bättre att veta
 det nu än den dagen det gäller.
 
+### 5.14 Öppna registreringen
+
+Registreringen är stängd om inget annat sägs. En bortglömd variabel håller
+dörren stängd; felet åt det hållet syns direkt och går att rätta, felet åt
+andra hållet upptäcks av någon annan.
+
+Innan den öppnas ska e-posten fungera på riktigt. Utan utgående mail kommer
+ingen bekräftelselänk fram, och ett konto utan bekräftad adress kan varken
+skapa ett hushåll eller bli part i ett - den som registrerar sig möter alltså
+en återvändsgränd. Kontrollera 5.10 först.
+
+1. Prova hela vägen med stängd registrering: skapa ett konto genom en
+   inbjudan, kontrollera att mailet kommer fram och att länken fungerar.
+2. Sätt `REGISTRATION_OPEN=true` i serverns miljöfil.
+3. Starta om appen:
+
+   ```
+   docker compose up -d app
+   ```
+
+4. Kontrollera att den verkligen är öppen:
+
+   ```
+   docker compose exec app printenv REGISTRATION_OPEN
+   ```
+
+   Svarar den ingenting nådde variabeln aldrig containern. Den måste stå
+   namngiven under app-tjänstens `environment` i `compose.yaml`; ett prov
+   vaktar det, men kontrollera ändå på plats.
+
+5. Gå till `/registrera` och skapa ett konto med en adress du kommer åt.
+   Bekräftelsemailet ska komma fram, länken ska logga in dig, och översikten
+   ska visa uppstarten.
+
+Att stänga igen är samma sak baklänges: ta bort värdet och starta om. Konton
+som redan finns påverkas inte - bara möjligheten att skapa nya.
+
+Bara strängen `true` öppnar. `1`, `ja` och `yes` gör det inte, med flit: det
+ska inte gå att öppna tjänsten av misstag genom att skriva något som ser ut
+som ett ja.
+
 ## 6. Flytta tjänsten någon annanstans
 
 1. `deploy/backup.sh` på den gamla servern.

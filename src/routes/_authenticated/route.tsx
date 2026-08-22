@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user } = Route.useRouteContext();
   return (
-    <HouseholdProvider userId={user.id} isAdmin={user.isAdmin}>
+    <HouseholdProvider userId={user.id} isAdmin={user.isAdmin} emailVerified={user.emailVerified}>
       <AppShell>
         <Outlet />
       </AppShell>

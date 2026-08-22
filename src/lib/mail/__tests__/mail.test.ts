@@ -75,6 +75,8 @@ const PARAMS: Record<MallNamn, Record<string, unknown>> = {
     giltigTill: "1 september",
   },
   inbjudan_ny: { namn: "Felicia", url: "https://x.se/i/def", giltigTill: "1 september" },
+  bekrafta_epost: { namn: "Nora", url: "https://x.se/bekrafta/jkl", giltigTill: "1 september" },
+  konto_finns_redan: { url: "https://x.se/auth" },
   losenord_aterstall: { url: "https://x.se/aterstall/ghi" },
   losenord_bytt: { epost: "a@b.se", tidpunkt: "22 augusti 09:14", url: "https://x.se" },
   motpart_accepterade: { motpart: "Felicia", hushall: "Caesar & Felicia", url: "https://x.se" },

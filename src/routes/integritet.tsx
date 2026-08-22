@@ -40,10 +40,11 @@ function IntegritetPage() {
 
         <Avsnitt rubrik="Vad som sparas">
           <p>
-            Namn och e-postadress för de konton som bjudits in. Uppgifterna om bostaden och
-            överenskommelsen som parterna själva fyller i. Betalningar med belopp, datum, kategori
-            och beskrivning. Underlag som parterna laddar upp, till exempel kvitton och fakturor.
-            Vem som godkänt eller invänt mot vad, och när.
+            Namn och e-postadress för de konton som skapats, antingen genom en inbjudan eller genom
+            registrering. Adressen bekräftas med en länk innan kontot kan användas till något.
+            Uppgifterna om bostaden och överenskommelsen som parterna själva fyller i. Betalningar
+            med belopp, datum, kategori och beskrivning. Underlag som parterna laddar upp, till
+            exempel kvitton och fakturor. Vem som godkänt eller invänt mot vad, och när.
           </p>
           <p>
             Lösenord sparas aldrig i klartext utan bara som en beräkning som inte går att vända

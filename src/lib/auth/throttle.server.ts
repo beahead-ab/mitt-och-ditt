@@ -11,7 +11,7 @@ import { owner } from "../db/client.server";
  * aldrig en permanent låsning.
  */
 
-export type Spärrkategori = "login" | "reset" | "invite";
+export type Spärrkategori = "login" | "reset" | "invite" | "register";
 
 const REGLER: Record<Spärrkategori, { tak: number; fönsterMinuter: number; spärrMinuter: number }> =
   {
@@ -19,6 +19,10 @@ const REGLER: Record<Spärrkategori, { tak: number; fönsterMinuter: number; sp�
     login: { tak: 10, fönsterMinuter: 15, spärrMinuter: 15 },
     // Återställning: färre försök, eftersom varje begäran skickar ett mail.
     reset: { tak: 5, fönsterMinuter: 60, spärrMinuter: 60 },
+    // Registrering: samma skäl som återställning, och dessutom skapar varje
+    // lyckad begäran ett konto. Det ska inte gå att fylla tabellen från en
+    // adress eller ett nät.
+    register: { tak: 5, fönsterMinuter: 60, spärrMinuter: 60 },
     // Inbjudningsacceptans: gissning av token ska inte löna sig.
     invite: { tak: 10, fönsterMinuter: 60, spärrMinuter: 60 },
   };
@@ -135,6 +139,12 @@ export type Säkerhetshändelse =
   | "login.avstängt_konto"
   | "reset.begärd"
   | "reset.spärrad"
+  | "register.skapad"
+  | "register.befintlig_adress"
+  | "register.spärrad"
+  | "register.stängd"
+  | "register.bekräftad"
+  | "register.bekräftelse_ogiltig"
   | "reset.genomförd"
   | "reset.ogiltig_token"
   | "losenord.bytt"
