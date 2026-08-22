@@ -11,6 +11,7 @@ export const SECTIONS: Section[] = [
       { to: "/transaktioner", label: "Registrera" },
       { to: "/transaktioner/vantar", label: "Väntar på godkännande" },
       { to: "/transaktioner/historik", label: "Historik" },
+      { to: "/transaktioner/avstamning", label: "Avstämning" },
     ],
   },
   {

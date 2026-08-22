@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, Clock, FileWarning, Receipt, Scale } from "lucide-react";
 import { useMemo } from "react";
 
@@ -6,6 +7,8 @@ import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { ExportMenu } from "@/components/export-menu";
 import { useHousehold } from "@/components/household-context";
+import { isDemo } from "@/lib/demo";
+import { reconciliationState } from "@/lib/reconciliation.functions";
 import { useExports } from "@/hooks/use-exports";
 import { NoAgreement } from "@/components/no-agreement";
 import { StatusCard } from "@/components/status-card";
@@ -14,7 +17,6 @@ import {
   defaultEndpoint,
   disputedTransactions,
   missingReceipts,
-  needsQuarterlyReview,
   pendingTransactions,
   run,
 } from "@/lib/calculation";
@@ -32,6 +34,15 @@ export const Route = createFileRoute("/_authenticated/")({
 function Overview() {
   const { household } = useHousehold();
   const { agreement, rules, transactions, isLoading } = useHouseholdData();
+
+  // Avstämningen läses ur databasen, inte gissas ur posterna. Räknades den från
+  // senaste transaktionen kunde återkommande betalningar skjuta upp den hur
+  // länge som helst - påminnelsen nollställdes av just det den kontrollerar.
+  const avstamning = useQuery({
+    queryKey: ["reconciliation", household?.id],
+    queryFn: () => reconciliationState({ data: { householdId: household?.id as string } }),
+    enabled: !isDemo && Boolean(household?.id),
+  });
   const withAttachment = useAttachmentReferences();
   const { summaryExports } = useExports(agreement);
 
@@ -52,7 +63,6 @@ function Overview() {
 
   const { result, endpoint } = computed;
   const [a, b] = agreement.parties;
-  const review = needsQuarterlyReview(transactions, null);
   const pending = pendingTransactions(transactions);
   const disputed = disputedTransactions(transactions);
   const missing = missingReceipts(agreement, transactions, withAttachment);
@@ -181,13 +191,25 @@ function Overview() {
         />
       </section>
 
-      {review.due && review.since && (
+      {avstamning.data && (avstamning.data.overdue || avstamning.data.open) && (
         <section className="mb-6 rounded-md border border-hairline bg-secondary/60 p-4">
-          <p className="eyebrow">Dags för avstämning</p>
+          <p className="eyebrow">
+            {avstamning.data.overdue ? "Dags för avstämning" : "Avstämning påbörjad"}
+          </p>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Ingenting har registrerats sedan {fmtDate(review.since)}. Enligt avtalet ska ni minst
-            varje kvartal kontrollera att betalningar, lånesaldon, skatteuppgifter och underlag är
-            registrerade.
+            Nästa avstämning ska vara gjord senast {fmtDate(avstamning.data.nextDueOn)}.
+            {avstamning.data.waitingFor.length > 0 &&
+              ` Väntar på ${avstamning.data.waitingFor
+                .map((p) => household?.parties.find((x) => x.partyId === p)?.name ?? p)
+                .join(", ")}.`}
+          </p>
+          <p className="mt-2 text-sm">
+            <Link
+              to="/transaktioner/avstamning"
+              className="text-primary underline underline-offset-4"
+            >
+              Gå till avstämningen
+            </Link>
           </p>
         </section>
       )}

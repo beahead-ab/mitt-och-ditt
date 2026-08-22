@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
 const CRUMBS: { match: string; label: string }[] = [
   { match: "/transaktioner/vantar", label: "Väntar på godkännande" },
   { match: "/transaktioner/historik", label: "Historik" },
+  { match: "/transaktioner/avstamning", label: "Kvartalsavstämning" },
   { match: "/transaktioner", label: "Registrera" },
   { match: "/overenskommelse/kostnadsslag", label: "Kostnadsslag" },
   { match: "/overenskommelse/versioner", label: "Avtalsversioner" },
