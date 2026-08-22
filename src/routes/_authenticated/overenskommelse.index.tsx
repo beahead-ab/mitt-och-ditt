@@ -64,12 +64,14 @@ function Current() {
           <Item label="Startdag" value={fmtDate(agreement.startDate)} låst />
           <Item label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} låst />
           <Item label="Bolån på startdagen" value={fmtKr(toKronor(agreement.initialLoan))} />
-          <Item
-            label="Totalt antal andelsenheter"
-            value={fmtEnheter(agreement.totalUnits)}
-            explain={TERMS.andelsenhet}
-          />
+          <Item label="Totalt antal andelsenheter" value={fmtEnheter(agreement.totalUnits)} />
         </dl>
+        {/* En förklaring för sektionen, inte en per fält. Sex frågetecken på
+            en sida läser man förbi; en synlig länk säger att det finns ett
+            framräknat exempel bakom. */}
+        <p className="mt-4 border-t border-hairline pt-3">
+          <Explain {...TERMS.andelsenhet} label="Vad är en andelsenhet?" />
+        </p>
       </section>
 
       <section className="tile-surface mb-4 p-5">
@@ -123,21 +125,16 @@ function Current() {
 function Item({
   label,
   value,
-  explain,
   låst,
 }: {
   label: string;
   value: string;
-  explain?: (typeof TERMS)[keyof typeof TERMS];
   /** Fältet skyddas av avtalets punkt 25.1 och ändras bara genom ett tillägg. */
   låst?: boolean;
 }) {
   return (
     <div>
-      <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {label}
-        {explain && <Explain {...explain} />}
-      </dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="tabular mt-0.5 text-base font-medium">{value}</dd>
       {låst && (
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

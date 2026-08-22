@@ -491,7 +491,7 @@ function SimulatorFor({
       <section className="tile-surface mb-6 p-5">
         <div className="mb-1 flex items-center gap-1.5">
           <p className="eyebrow">Beräknat värde över tid</p>
-          <Explain {...TERMS.linjartVarde} />
+          <Explain {...TERMS.linjartVarde} label="Hur räknas värdet fram?" />
         </div>
         <Legend />
         <div className="mt-3 h-64 w-full">
@@ -580,7 +580,7 @@ function SimulatorFor({
         <section className="tile-surface mb-6 p-5">
           <div className="mb-1 flex items-center gap-1.5">
             <p className="eyebrow">Andelsutveckling</p>
-            <Explain {...TERMS.internAndel} />
+            <Explain {...TERMS.internAndel} label="Vad är en intern andel?" />
           </div>
           <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
             {[

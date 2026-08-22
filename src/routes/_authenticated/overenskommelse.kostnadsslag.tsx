@@ -34,7 +34,7 @@ function Categories() {
         eyebrow="Överenskommelse"
         title="Kostnadsslag"
         description="Avgör vilka kostnader som ger andelsenheter och vilka som delas vid sidan av modellen."
-        info={<Explain {...TERMS.utanforModellen} />}
+        info={<Explain {...TERMS.utanforModellen} label="Vad betyder utanför modellen?" />}
       />
 
       <div className="hidden md:block">

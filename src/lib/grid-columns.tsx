@@ -78,12 +78,14 @@ export function transactionColumns(
   return [
     {
       key: "id",
+      grupp: "Posten",
       header: "ID",
       width: 5.5,
       text: (tx) => tx.id,
     },
     {
       key: "date",
+      grupp: "Posten",
       header: "Betalningsdag",
       width: 9,
       text: (tx) => fmtDate(tx.paymentDate),
@@ -91,12 +93,14 @@ export function transactionColumns(
     },
     {
       key: "category",
+      grupp: "Posten",
       header: "Kostnadsslag",
       width: 10,
       text: (tx) => tx.category,
     },
     {
       key: "model",
+      grupp: "Sällan",
       sällan: true,
       header: "I modellen",
       width: 7,
@@ -112,12 +116,14 @@ export function transactionColumns(
     },
     {
       key: "description",
+      grupp: "Posten",
       header: "Beskrivning",
       width: 18,
       text: (tx) => tx.description ?? "",
     },
     {
       key: "payer",
+      grupp: "Beloppen",
       header: "Betalare",
       width: 7.5,
       text: (tx) => {
@@ -128,6 +134,7 @@ export function transactionColumns(
     ...parties.map((party): GridColumn<Transaction> => ({
       key: `gross-${party}`,
       header: `Betalt ${partyName(party)}`,
+      grupp: "Beloppen",
       width: 8,
       numeric: true,
       text: (tx) => krOrDash(tx.payments[party]?.gross ?? 0),
@@ -135,6 +142,7 @@ export function transactionColumns(
     })),
     {
       key: "deductions",
+      grupp: "Beloppen",
       header: "Avdrag",
       width: 7,
       numeric: true,
@@ -143,6 +151,7 @@ export function transactionColumns(
     },
     {
       key: "tax",
+      grupp: "Beloppen",
       header: "Skatteeffekt",
       width: 8,
       numeric: true,
@@ -175,6 +184,7 @@ export function transactionColumns(
     },
     {
       key: "net",
+      grupp: "Beloppen",
       header: "Nettokostnad",
       width: 8,
       numeric: true,
@@ -183,6 +193,7 @@ export function transactionColumns(
     },
     {
       key: "status",
+      grupp: "Läget",
       header: "Status",
       width: 7,
       text: (tx) => STATUS_LABEL[tx.status],
@@ -194,6 +205,7 @@ export function transactionColumns(
     },
     {
       key: "key",
+      grupp: "Sällan",
       sällan: true,
       header: "Särskild nyckel",
       width: 8,
@@ -203,6 +215,7 @@ export function transactionColumns(
     },
     {
       key: "loan",
+      grupp: "Sällan",
       sällan: true,
       header: "Lånesaldo",
       width: 8,
@@ -212,12 +225,14 @@ export function transactionColumns(
     },
     {
       key: "corrects",
+      grupp: "Läget",
       header: "Korrigerar",
       width: 7,
       text: (tx) => tx.correctsId ?? "–",
     },
     {
       key: "gross-total",
+      grupp: "Sällan",
       sällan: true,
       header: "Bruttobelopp",
       width: 8,

@@ -105,3 +105,15 @@ export const BUYOUT_CHECKLIST = [
   },
   { key: "slutavrakning", label: "Slutavräkningen är godkänd av båda parter" },
 ] as const;
+
+/**
+ * Fastställer slutvärdet ur värderingarna (avtal 18).
+ *
+ * Ren logik, och därför här och inte i servermodulen: gränssnittet behöver
+ * samma svar - bland annat för att kunna visa ett exempel i demoläget - och
+ * ett `.server`-modulanrop går inte att göra från klienten.
+ */
+export function valuationOutcome(valuations: { amount: Ore }[]) {
+  if (valuations.length < 2) return null;
+  return determineValuation(valuations.map((v) => v.amount));
+}

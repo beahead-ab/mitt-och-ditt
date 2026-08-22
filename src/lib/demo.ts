@@ -172,3 +172,59 @@ export const DEMO_REVISIONS = new Map<string, RecordVersion<Transaction>[]>([
   ],
   ["T-0006", [revision(1, byId.get("T-0006")!, CAESAR, "2025-10-30T19:00:00Z", null)]],
 ]);
+
+/**
+ * En pågående exitprocess, för demoläget.
+ *
+ * Sidorna för försäljning och slutavräkning läser ur databasen och stod
+ * därför tomma i demoläget - tre återvändsgränder mitt i den yta någon
+ * utvärderar tjänsten i. Exempeldata här är inte mindre sant än de
+ * exempeltransaktioner som redan driver resten av demot; det är samma
+ * fixturhushåll, och ytan märker det som exempel.
+ */
+export const DEMO_EXIT = {
+  id: "demo-exit",
+  processDate: "2026-06-01",
+  kind: "utkop" as const,
+  status: "pagaende" as const,
+  takeoverPartyId: "caesar",
+  takeoverNotifiedAt: "2026-06-14T09:00:00.000Z",
+  // Samma nycklar som checklistan i tjänsten använder; en fixtur med egna
+  // nycklar hade visat en checklista som inte finns.
+  checklist: {
+    overlatelsehandling: true,
+    ersattning: true,
+    foreningshandlingar: false,
+    ansvarsbefrielse: false,
+    slutavrakning: false,
+  } as Record<string, boolean>,
+  note: null,
+  completedAt: null,
+  deadlines: { takeoverNoticeBy: "2026-07-01", saleOrBuyoutBy: "2026-09-01" },
+  dodsfall: {
+    estateInventoryOn: null,
+    takeoverDeclaredOn: null,
+    valueEstablishedOn: null,
+    financingArrangedOn: null,
+  },
+};
+
+/** Två värderingar, som avtalet kräver innan ett utköpsvärde fastställs. */
+export const DEMO_VALUATIONS = [
+  {
+    id: "demo-v1",
+    orderedByPartyId: "caesar",
+    broker: "Mäklare Nord",
+    valuedOn: "2026-06-20",
+    amount: 495_000_000,
+    note: null,
+  },
+  {
+    id: "demo-v2",
+    orderedByPartyId: "felicia",
+    broker: "Mäklare Syd",
+    valuedOn: "2026-06-22",
+    amount: 505_000_000,
+    note: null,
+  },
+];

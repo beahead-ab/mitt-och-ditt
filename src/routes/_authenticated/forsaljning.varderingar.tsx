@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { today } from "@/lib/calculation";
-import { isDemo } from "@/lib/demo";
+import { DEMO_EXIT, DEMO_VALUATIONS, isDemo } from "@/lib/demo";
+import { valuationOutcome } from "@/lib/engine/exit";
 import { kr, toKronor } from "@/lib/engine";
 import { addValuationFn, getExit } from "@/lib/exit.functions";
 import { fmtDate, fmtKr } from "@/lib/format";
@@ -56,24 +57,16 @@ function ValuationsPage() {
     onError: (error: Error) => toast.error(error.message || "Kunde inte spara värderingen."),
   });
 
-  if (isDemo) {
-    return (
-      <>
-        <PageHeader eyebrow="Försäljning & utköp" title="Värderingar" />
-        <div className="tile-surface p-6 text-sm text-muted-foreground">
-          Värderingar registreras med mäklarens underlag och kräver databas.
-        </div>
-      </>
-    );
-  }
-
-  const process = query.data?.process ?? null;
-  const valuations = query.data?.valuations ?? [];
-  const outcome = query.data?.outcome ?? null;
+  // Demoläget visar samma yta med exempeldata. Att registrera är avstängt.
+  const process = isDemo ? DEMO_EXIT : (query.data?.process ?? null);
+  const valuations = isDemo ? DEMO_VALUATIONS : (query.data?.valuations ?? []);
+  const outcome = isDemo ? valuationOutcome(DEMO_VALUATIONS) : (query.data?.outcome ?? null);
   const names = Object.fromEntries((household?.parties ?? []).map((p) => [p.partyId, p.name]));
 
   return (
     <>
+      {isDemo && <Exempelrad />}
+
       <PageHeader
         eyebrow="Försäljning & utköp"
         title="Värderingar"
@@ -184,7 +177,7 @@ function ValuationsPage() {
                 <Switch checked={joint} onCheckedChange={(checked) => setJoint(checked === true)} />
               </label>
               <div className="sm:col-span-2">
-                <Button type="submit" disabled={add.isPending}>
+                <Button type="submit" disabled={isDemo || add.isPending}>
                   Registrera värderingen
                 </Button>
               </div>
@@ -193,5 +186,17 @@ function ValuationsPage() {
         </>
       )}
     </>
+  );
+}
+
+/** Märker demoläget som exempel, med samma ord överallt. */
+function Exempelrad() {
+  return (
+    <p className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm">
+      <span className="inline-flex rounded-full border border-hairline bg-card px-2.5 py-0.5 text-xs text-muted-foreground">
+        Exempel
+      </span>
+      Påhittade uppgifter, så att ytan går att se. Åtgärderna är avstängda i demoläget.
+    </p>
   );
 }

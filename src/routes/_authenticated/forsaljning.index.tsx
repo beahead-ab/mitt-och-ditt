@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useMyParty } from "@/hooks/use-my-party";
 import { today } from "@/lib/calculation";
-import { isDemo } from "@/lib/demo";
+import { DEMO_EXIT, isDemo } from "@/lib/demo";
 import { BUYOUT_CHECKLIST, compareDates } from "@/lib/engine";
 import { getExit, notifyTakeoverFn, setChecklistFn, startExitFn } from "@/lib/exit.functions";
 import { fmtDate } from "@/lib/format";
@@ -75,23 +75,23 @@ function ExitProcessPage() {
     onError: () => toast.error("Kunde inte spara checklistan."),
   });
 
-  if (isDemo) {
-    return (
-      <>
-        <PageHeader eyebrow="Försäljning & utköp" title="Process" />
-        <DemoNotice vad="Här registreras att någon vill ut: extern försäljning, utköp eller dödsfall. Processen bär sina frister, sin checklista och vem som meddelat vad – så att ingen behöver minnas datum ur huvudet.">
-          Utköpsvärdet fastställs genom värderingar, och slutavräkningen görs på det värdet.
-        </DemoNotice>
-      </>
-    );
-  }
-
-  const process = query.data?.process ?? null;
+  // I demoläget visas samma yta med exempeldata i stället för ett tomt rum.
+  // Åtgärderna är avstängda: de skriver till databasen, som inte finns här.
+  const process = isDemo ? DEMO_EXIT : (query.data?.process ?? null);
   const names = Object.fromEntries((household?.parties ?? []).map((p) => [p.partyId, p.name]));
   const now = today();
 
   return (
     <>
+      {isDemo && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm">
+          <span className="inline-flex rounded-full border border-hairline bg-card px-2.5 py-0.5 text-xs text-muted-foreground">
+            Exempel
+          </span>
+          En påhittad process, så att ytan går att se. Åtgärderna är avstängda i demoläget.
+        </p>
+      )}
+
       <PageHeader
         eyebrow="Försäljning & utköp"
         title="Process"
@@ -129,7 +129,11 @@ function ExitProcessPage() {
               </Select>
             </div>
           </div>
-          <Button className="mt-4" disabled={start.isPending} onClick={() => start.mutate()}>
+          <Button
+            className="mt-4"
+            disabled={isDemo || start.isPending}
+            onClick={() => start.mutate()}
+          >
             Registrera processdagen
           </Button>
         </section>
@@ -173,7 +177,7 @@ function ExitProcessPage() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                disabled={notify.isPending}
+                disabled={isDemo || notify.isPending}
                 onClick={() => notify.mutate(process.id)}
               >
                 Jag vill överta bostaden
@@ -195,6 +199,7 @@ function ExitProcessPage() {
                 <li key={item.key} className="flex items-start gap-2.5">
                   <Checkbox
                     id={item.key}
+                    disabled={isDemo}
                     checked={process.checklist[item.key] === true}
                     onCheckedChange={(checked) =>
                       checklist.mutate({

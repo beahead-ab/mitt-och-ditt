@@ -50,6 +50,12 @@ export type GridColumn<T> = {
    * och beloppen ur synfältet.
    */
   sällan?: boolean;
+  /**
+   * Kolumngrupp. Sexton kolumner i rad läses som en enda lång rad; med
+   * grupperna framme går det att hoppa till rätt del utan att läsa alla
+   * rubriker. Kolumner utan grupp får ingen etikett över sig.
+   */
+  grupp?: string;
 };
 
 type Props<T> = {
@@ -216,6 +222,18 @@ export function DataGrid<T>({
 
   const gridTemplate = `${GUTTER} ${columns.map((c) => `${c.width}rem`).join(" ")}`;
 
+  // Intilliggande kolumner med samma grupp slås ihop till ett spann. Saknar
+  // någon kolumn grupp ritas ingen grupprad alls - halvt grupperade rubriker
+  // är svårare att läsa än inga.
+  const kolumngrupper = columns.every((c) => c.grupp)
+    ? columns.reduce<{ namn: string; antal: number }[]>((grupper, column) => {
+        const sista = grupper[grupper.length - 1];
+        if (sista && sista.namn === column.grupp) sista.antal += 1;
+        else grupper.push({ namn: column.grupp as string, antal: 1 });
+        return grupper;
+      }, [])
+    : [];
+
   if (rows.length === 0) {
     return (
       <div className="tile-surface p-8 text-center">
@@ -251,6 +269,27 @@ export function DataGrid<T>({
             style={{ maxHeight: "min(70vh, 40rem)" }}
           >
             <div className="min-w-max">
+              {/* Gruppraden. Ritas bara när kolumnerna faktiskt är grupperade,
+                  så ett rutnät med fyra kolumner inte får en tom rad över sig. */}
+              {kolumngrupper.length > 0 && (
+                <div
+                  aria-hidden
+                  className="sticky top-0 z-30 grid border-b border-hairline bg-secondary"
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  <div className="sticky left-0 z-10 border-r border-hairline bg-secondary px-2 py-1" />
+                  {kolumngrupper.map((grupp, index) => (
+                    <div
+                      key={`${grupp.namn}-${index}`}
+                      style={{ gridColumn: `span ${grupp.antal}` }}
+                      className="truncate border-r border-hairline bg-secondary px-3 py-1 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground last:border-r-0"
+                    >
+                      {grupp.namn}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Huvudrad */}
               <div
                 role="row"

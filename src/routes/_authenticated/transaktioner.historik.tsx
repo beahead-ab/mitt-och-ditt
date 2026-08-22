@@ -288,7 +288,7 @@ function HistoryFor({
         <section className="mt-8">
           <div className="mb-2 flex items-center gap-1.5">
             <p className="eyebrow">Dagsberäkning</p>
-            <Explain {...TERMS.enhetsvarde} />
+            <Explain {...TERMS.enhetsvarde} label="Så räknas dagen fram" />
           </div>
           <p className="mb-3 text-sm text-muted-foreground">
             Varje betalningsdag med godkända poster, steg för steg. Poster samma dag nettas och

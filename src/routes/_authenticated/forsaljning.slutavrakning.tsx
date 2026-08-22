@@ -114,9 +114,16 @@ function SettlementPage() {
     return (
       <>
         <PageHeader eyebrow="Försäljning & utköp" title="Slutavräkning" />
+        <p className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm">
+          <span className="inline-flex rounded-full border border-hairline bg-card px-2.5 py-0.5 text-xs text-muted-foreground">
+            Exempel
+          </span>
+          Så här ser en avräkning ut innan den skapas. Att låsa den är avstängt i demoläget.
+        </p>
         <DemoNotice vad="Slutavräkningen fryser beräkningen: indata, resultat och en kontrollsumma sparas som de var. Båda parter godkänner, och därefter kan ingen roll ändra den – inte heller den som administrerar tjänsten.">
           Protokollet följer avtalets bilaga 3 och går att räkna om ur samma indata när som helst.
-          Ger omräkningen ett annat resultat syns det, i stället för att jämnas ut.
+          Ger omräkningen ett annat resultat syns det, i stället för att jämnas ut. Underlaget som
+          fryses hämtas om från databasen i samma stund – aldrig från det klienten skickat med.
         </DemoNotice>
       </>
     );

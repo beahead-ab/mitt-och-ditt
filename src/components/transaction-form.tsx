@@ -76,6 +76,7 @@ export function TransactionForm({
   rules,
   correctsReference,
   onDone,
+  disabled,
 }: {
   householdId: string;
   parties: Party[];
@@ -83,6 +84,11 @@ export function TransactionForm({
   /** Sätts när formuläret används för att korrigera en befintlig post. */
   correctsReference?: string;
   onDone?: () => void;
+  /**
+   * Visar formuläret men låter det inte skriva. Används i demoläget, där
+   * ytan ska gå att se men ingenting kan sparas.
+   */
+  disabled?: boolean;
 }) {
   const queryClient = useQueryClient();
   const categories = categoryOptions(rules);
@@ -262,7 +268,7 @@ export function TransactionForm({
       </p>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={disabled || save.isPending}>
           {save.isPending ? "Sparar …" : "Skicka för godkännande"}
         </Button>
         <Button

@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DemoNotice } from "@/components/demo-notice";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app-shell";
@@ -7,7 +6,7 @@ import { useHousehold } from "@/components/household-context";
 import { NoAgreement } from "@/components/no-agreement";
 import { TransactionForm } from "@/components/transaction-form";
 import { useHouseholdData } from "@/hooks/use-household-data";
-import { isDemo } from "@/lib/demo";
+import { DEMO_HOUSEHOLD, isDemo } from "@/lib/demo";
 
 export const Route = createFileRoute("/_authenticated/transaktioner/")({
   // Korrigering öppnar samma formulär med posten som ska ersättas angiven.
@@ -34,10 +33,21 @@ function Register() {
       />
 
       {isDemo ? (
-        <DemoNotice vad="Den som registrerar en betalning godkänner den i samma steg. Motparten tar ställning, och först när båda gjort det påverkar posten andelarna.">
-          Poster raderas aldrig. Fel rättas med en korrigering, och en post som inte hör hit
-          makuleras – båda syns i historiken.
-        </DemoNotice>
+        <>
+          <p className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-hairline bg-secondary/60 p-3 text-sm">
+            <span className="inline-flex rounded-full border border-hairline bg-card px-2.5 py-0.5 text-xs text-muted-foreground">
+              Exempel
+            </span>
+            Formuläret går att fylla i och läsa. Att spara är avstängt i demoläget.
+          </p>
+          <TransactionForm
+            disabled
+            householdId={DEMO_HOUSEHOLD.id}
+            parties={(household?.parties ?? []).map((p) => ({ partyId: p.partyId, name: p.name }))}
+            rules={rules}
+            correctsReference={korrigerar}
+          />
+        </>
       ) : !agreement || !household ? (
         <NoAgreement loading={isLoading} />
       ) : (

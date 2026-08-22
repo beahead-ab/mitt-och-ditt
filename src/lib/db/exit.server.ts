@@ -288,11 +288,10 @@ export async function addValuation(
   });
 }
 
-/** Fastställer slutvärdet ur värderingarna enligt avtalets punkt 18. */
-export function valuationOutcome(valuations: Valuation[]) {
-  if (valuations.length < 2) return null;
-  return determineValuation(valuations.map((v) => v.amount));
-}
+// Fastställandet av slutvärdet ligger bland de rena funktionerna, eftersom
+// gränssnittet behöver samma svar. Återexporteras här så anropen inte behöver
+// ändras.
+export { valuationOutcome } from "@/lib/engine/exit";
 
 /**
  * Skapar slutavräkningen och fryser den. Indata hämtas om från databasen vid
