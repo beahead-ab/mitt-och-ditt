@@ -291,7 +291,7 @@ export async function approveDocument(
   userId: string,
   partyId: string,
   householdId: string,
-  entityType: "agreement_version" | "cost_category_rule" | "settlement",
+  entityType: "agreement_version" | "cost_category_rule" | "settlement" | "addendum",
   entityId: string,
 ): Promise<void> {
   return asUser(userId, async (sql) => {
