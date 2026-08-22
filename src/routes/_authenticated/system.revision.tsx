@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ShieldCheck, ShieldAlert } from "lucide-react";
+import { Package, ShieldCheck, ShieldAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import { DataGrid, type GridColumn } from "@/components/data-grid";
@@ -9,6 +9,11 @@ import { useHousehold } from "@/components/household-context";
 import { useExports } from "@/hooks/use-exports";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { auditTrail, type AuditEvent } from "@/lib/audit.functions";
+import { Button } from "@/components/ui/button";
+import { downloadBlob } from "@/lib/export/download";
+import { byggRevisionszip, revisionszipNamn } from "@/lib/export/revisionszip";
+import { revisionPackage } from "@/lib/revisionspaket.functions";
+import { toast } from "sonner";
 import { isDemo } from "@/lib/demo";
 import { fmtDateTime } from "@/lib/format";
 
@@ -47,13 +52,46 @@ function AuditPage() {
 
   const trail = query.data;
 
+  /**
+   * Hela underlaget som ett paket. Servern hämtar alla delar i ett enda
+   * ögonblick och räknar checksummorna över exakt det som packas, så att
+   * innehållsförteckningen alltid stämmer med filerna i zipen.
+   */
+  const paket = useMutation({
+    mutationFn: () => revisionPackage({ data: { householdId: household?.id as string } }),
+    onSuccess: (svar) => {
+      if (!svar.ok) {
+        toast.error(svar.skal);
+        return;
+      }
+      downloadBlob(byggRevisionszip(svar.filer), revisionszipNamn(svar.skapad));
+      toast.success(`Revisionsunderlaget hämtat: ${svar.filer.length} filer.`);
+    },
+    onError: (fel: Error) => toast.error(fel.message || "Kunde inte bygga revisionsunderlaget."),
+  });
+
   return (
     <>
       <PageHeader
         eyebrow="Systemadmin"
         title="Revisionsunderlag"
         description="Varje händelse i hushållet, i den ordning den inträffade."
-        action={!isDemo && <ExportMenu groups={[{ title: "Underlag", choices: auditExport() }]} />}
+        action={
+          !isDemo && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={paket.isPending}
+                onClick={() => paket.mutate()}
+              >
+                <Package className="mr-1.5 size-4" />
+                {paket.isPending ? "Bygger …" : "Hela underlaget som zip"}
+              </Button>
+              <ExportMenu groups={[{ title: "Underlag", choices: auditExport() }]} />
+            </div>
+          )
+        }
       />
 
       {isDemo ? (

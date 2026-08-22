@@ -1,4 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -25,7 +27,18 @@ import {
 } from "@/components/ui/table";
 import { defaultEndpoint, run, today } from "@/lib/calculation";
 import { NoAgreement } from "@/components/no-agreement";
+import { useHousehold } from "@/components/household-context";
 import { useHouseholdData } from "@/hooks/use-household-data";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { isDemo } from "@/lib/demo";
+import {
+  deleteScenario,
+  listScenarios,
+  saveScenario,
+  setDefaultScenario,
+  type Scenario,
+} from "@/lib/scenarios.functions";
 import {
   compareDates,
   kr,
@@ -88,6 +101,66 @@ function SimulatorFor({
   const [endLoan, setEndLoan] = useState(toKronor(base.endLoan));
   const [saleCosts, setSaleCosts] = useState(0);
   const [scenario, setScenario] = useState(10);
+  const [scenarioNamn, setScenarioNamn] = useState("");
+
+  const klient = useQueryClient();
+  const { household } = useHousehold();
+  const householdId = household?.id as string;
+
+  const scenarier = useQuery({
+    queryKey: ["scenarios", householdId],
+    queryFn: () => listScenarios({ data: { householdId } }),
+    enabled: !isDemo && Boolean(householdId),
+  });
+
+  /** Läser in ett sparat antagande i formuläret. Skriver inget. */
+  function laddaScenario(s: Scenario) {
+    setEndDate(s.endDate);
+    setEndValue(toKronor(s.endValueOre));
+    setEndLoan(toKronor(s.endLoanOre));
+    setSaleCosts(toKronor(s.saleCostsOre));
+    setScenario(s.spreadPercent);
+    setScenarioNamn(s.name);
+  }
+
+  const spara = useMutation({
+    mutationFn: () =>
+      saveScenario({
+        data: {
+          householdId,
+          name: scenarioNamn.trim(),
+          endDate,
+          endValueOre: kr(endValue || 0),
+          endLoanOre: kr(endLoan || 0),
+          saleCostsOre: kr(saleCosts || 0),
+          spreadPercent: scenario,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Scenariot är sparat.");
+      void klient.invalidateQueries({ queryKey: ["scenarios"] });
+    },
+    onError: (fel: Error) => toast.error(fel.message || "Kunde inte spara scenariot."),
+  });
+
+  const valjStandard = useMutation({
+    mutationFn: (scenarioId: string | null) =>
+      setDefaultScenario({ data: { householdId, scenarioId } }),
+    onSuccess: () => {
+      toast.success("Översiktens antagande är uppdaterat.");
+      void klient.invalidateQueries();
+    },
+    onError: (fel: Error) => toast.error(fel.message || "Kunde inte välja scenario."),
+  });
+
+  const taBort = useMutation({
+    mutationFn: (scenarioId: string) => deleteScenario({ data: { householdId, scenarioId } }),
+    onSuccess: () => {
+      toast.success("Scenariot är borttaget.");
+      void klient.invalidateQueries({ queryKey: ["scenarios"] });
+    },
+    onError: (fel: Error) => toast.error(fel.message || "Kunde inte ta bort scenariot."),
+  });
 
   const endpoint: Endpoint = {
     mode: "prognos",
@@ -254,6 +327,85 @@ function SimulatorFor({
           />
         </Field>
       </section>
+
+      {!isDemo && (
+        <section className="tile-surface mb-6 p-5">
+          <p className="eyebrow mb-1">Sparade scenarier</p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Ett scenario är ett antagande, inte ett beslut. Att spara eller välja ett ändrar varken
+            avtalet, posterna eller era andelar – det styr bara vad som räknas fram här och vilket
+            antagande översiktens prognos utgår från.
+          </p>
+
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="scenario-namn">Namn</Label>
+              <Input
+                id="scenario-namn"
+                value={scenarioNamn}
+                onChange={(e) => setScenarioNamn(e.target.value)}
+                placeholder="Till exempel: försäljning 2031"
+                maxLength={60}
+                className="w-64"
+              />
+            </div>
+            <Button
+              variant="outline"
+              disabled={spara.isPending || scenarioNamn.trim().length === 0}
+              onClick={() => spara.mutate()}
+            >
+              Spara antagandena
+            </Button>
+          </div>
+
+          {(scenarier.data ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Inga sparade scenarier än. Fyll i antagandena ovan och ge dem ett namn.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {(scenarier.data ?? []).map((s) => (
+                <li
+                  key={s.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--hairline)] p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">{s.name}</p>
+                      {s.isDefault && <Badge variant="secondary">Översiktens antagande</Badge>}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {fmtDate(s.endDate)} · {fmtKr(toKronor(s.endValueOre))} · spridning ±
+                      {s.spreadPercent} % · sparat av {s.createdBy}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => laddaScenario(s)}>
+                      Använd här
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={valjStandard.isPending}
+                      onClick={() => valjStandard.mutate(s.isDefault ? null : s.id)}
+                    >
+                      {s.isDefault ? "Sluta använda i översikten" : "Använd i översikten"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={taBort.isPending}
+                      onClick={() => taBort.mutate(s.id)}
+                    >
+                      Ta bort
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="tile-surface mb-6 p-5">
         <div className="mb-1 flex items-center gap-1.5">
