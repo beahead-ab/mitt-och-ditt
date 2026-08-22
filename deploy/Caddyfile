@@ -8,5 +8,21 @@
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+
+		# Innehållspolicy. Tjänsten hämtar ingenting utifrån: typsnitt,
+		# skript och stilar följer med bygget, och bilagor ligger på samma
+		# ursprung. Därför räcker 'self' rakt igenom.
+		#
+		# unsafe-inline på style-src behövs eftersom appen sätter infogade
+		# stilar för layout, och att ta bort det hade krävt en nonce genom
+		# hela renderingen. Infogade *skript* tillåts däremot inte, vilket är
+		# den del som spelar roll för intrång.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+		# Servern behöver inte tala om vad den är.
+		-Server
 	}
 }

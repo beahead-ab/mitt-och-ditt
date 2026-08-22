@@ -3,6 +3,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { asUser } from "./client.server";
+import { kontrolleraSignatur } from "./filsignatur";
 
 /**
  * Bilagor ligger utanför webbroten och nås aldrig direkt. Varje läsning går
@@ -65,6 +66,13 @@ export async function storeAttachment(
     throw new Error(`Filen är för stor. Högst ${MAX_BYTES / 1024 / 1024} MB.`);
   }
 
+  // Webbläsarens uppgift om filtyp härleds oftast ur filändelsen och går att
+  // sätta till vad som helst. Innehållet får avgöra, och den typ som sparas är
+  // den som filen faktiskt har.
+  const besked = kontrolleraSignatur(file.type, file.bytes);
+  if (!besked.ok) throw new Error(besked.skäl);
+  const contentType = besked.contentType;
+
   const sha256 = createHash("sha256").update(file.bytes).digest("hex");
 
   return asUser(userId, async (sql) => {
@@ -85,7 +93,7 @@ export async function storeAttachment(
         id, household_id, transaction_id, storage_key, filename, content_type,
         byte_size, sha256, uploaded_by
       ) values (
-        ${id}, ${householdId}, ${transactionId}, ${id}, ${safeName(file.name)}, ${file.type},
+        ${id}, ${householdId}, ${transactionId}, ${id}, ${safeName(file.name)}, ${contentType},
         ${file.bytes.byteLength}, ${sha256}, ${userId}
       )
     `;

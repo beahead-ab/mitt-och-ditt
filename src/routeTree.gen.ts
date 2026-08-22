@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as GlomtRouteImport } from './routes/glomt'
+import { Route as IntegritetRouteImport } from './routes/integritet'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSimulatorRouteImport } from './routes/_authenticated/simulator'
+import { Route as ApiHalsaRouteImport } from './routes/api/halsa'
 import { Route as AterstallTokenRouteImport } from './routes/aterstall.$token'
 import { Route as InbjudanTokenRouteImport } from './routes/inbjudan.$token'
 import { Route as AuthenticatedForsaljningIndexRouteImport } from './routes/_authenticated/forsaljning.index'
@@ -51,6 +53,11 @@ const GlomtRoute = GlomtRouteImport.update({
   path: '/glomt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegritetRoute = IntegritetRouteImport.update({
+  id: '/integritet',
+  path: '/integritet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -60,6 +67,11 @@ const AuthenticatedSimulatorRoute = AuthenticatedSimulatorRouteImport.update({
   id: '/simulator',
   path: '/simulator',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiHalsaRoute = ApiHalsaRouteImport.update({
+  id: '/api/halsa',
+  path: '/api/halsa',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AterstallTokenRoute = AterstallTokenRouteImport.update({
   id: '/aterstall/$token',
@@ -192,7 +204,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/glomt': typeof GlomtRoute
+  '/integritet': typeof IntegritetRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/halsa': typeof ApiHalsaRoute
   '/aterstall/$token': typeof AterstallTokenRoute
   '/inbjudan/$token': typeof InbjudanTokenRoute
   '/forsaljning/slutavrakning': typeof AuthenticatedForsaljningSlutavrakningRoute
@@ -219,7 +233,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/glomt': typeof GlomtRoute
+  '/integritet': typeof IntegritetRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/halsa': typeof ApiHalsaRoute
   '/aterstall/$token': typeof AterstallTokenRoute
   '/inbjudan/$token': typeof InbjudanTokenRoute
   '/': typeof AuthenticatedIndexRoute
@@ -249,7 +265,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/glomt': typeof GlomtRoute
+  '/integritet': typeof IntegritetRoute
   '/_authenticated/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/halsa': typeof ApiHalsaRoute
   '/aterstall/$token': typeof AterstallTokenRoute
   '/inbjudan/$token': typeof InbjudanTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -280,7 +298,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/glomt'
+    | '/integritet'
     | '/simulator'
+    | '/api/halsa'
     | '/aterstall/$token'
     | '/inbjudan/$token'
     | '/forsaljning/slutavrakning'
@@ -307,7 +327,9 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/glomt'
+    | '/integritet'
     | '/simulator'
+    | '/api/halsa'
     | '/aterstall/$token'
     | '/inbjudan/$token'
     | '/'
@@ -336,7 +358,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/glomt'
+    | '/integritet'
     | '/_authenticated/simulator'
+    | '/api/halsa'
     | '/aterstall/$token'
     | '/inbjudan/$token'
     | '/_authenticated/'
@@ -366,6 +390,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   GlomtRoute: typeof GlomtRoute
+  IntegritetRoute: typeof IntegritetRoute
+  ApiHalsaRoute: typeof ApiHalsaRoute
   AterstallTokenRoute: typeof AterstallTokenRoute
   InbjudanTokenRoute: typeof InbjudanTokenRoute
   ApiBilagaIdRoute: typeof ApiBilagaIdRoute
@@ -395,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GlomtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integritet': {
+      id: '/integritet'
+      path: '/integritet'
+      fullPath: '/integritet'
+      preLoaderRoute: typeof IntegritetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
@@ -408,6 +441,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/simulator'
       preLoaderRoute: typeof AuthenticatedSimulatorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/halsa': {
+      id: '/api/halsa'
+      path: '/api/halsa'
+      fullPath: '/api/halsa'
+      preLoaderRoute: typeof ApiHalsaRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/aterstall/$token': {
       id: '/aterstall/$token'
@@ -628,6 +668,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   GlomtRoute: GlomtRoute,
+  IntegritetRoute: IntegritetRoute,
+  ApiHalsaRoute: ApiHalsaRoute,
   AterstallTokenRoute: AterstallTokenRoute,
   InbjudanTokenRoute: InbjudanTokenRoute,
   ApiBilagaIdRoute: ApiBilagaIdRoute,

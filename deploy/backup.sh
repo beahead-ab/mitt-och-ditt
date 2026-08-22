@@ -28,6 +28,38 @@ for f in "$DIR/db-$STAMP.sql.gz" "$DIR/uploads-$STAMP.tar.gz"; do
   fi
 done
 
+# ---------------------------------------------------------------------------
+# Kopia utanför servern.
+#
+# En kopia på samma maskin hjälper vid ett vanligt fel men inte om hela servern
+# försvinner - och det är just då man behöver den. Kopian krypteras här, innan
+# den lämnar maskinen, så att lösenordet aldrig behöver anförtros lagringen.
+#
+# Sätt BACKUP_PASSPHRASE och BACKUP_REMOTE i serverns miljöfil. Utan dem hoppas
+# steget över med ett tydligt meddelande - tyst avstängt vore värre.
+if [ -n "${BACKUP_PASSPHRASE:-}" ] && [ -n "${BACKUP_REMOTE:-}" ]; then
+  for fil in "$DIR/db-$STAMP.sql.gz" "$DIR/uploads-$STAMP.tar.gz"; do
+    openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+      -pass env:BACKUP_PASSPHRASE -in "$fil" -out "$fil.enc"
+    if ! rclone copy "$fil.enc" "$BACKUP_REMOTE" >/dev/null; then
+      echo "VARNING: kopian kunde inte skickas till $BACKUP_REMOTE" >&2
+      rm -f "$fil.enc"
+      exit 1
+    fi
+    rm -f "$fil.enc"
+  done
+  echo "$(date -u +%FT%TZ) krypterad kopia skickad till $BACKUP_REMOTE"
+else
+  echo "$(date -u +%FT%TZ) ingen kopia utanför servern: BACKUP_PASSPHRASE eller BACKUP_REMOTE saknas" >&2
+fi
+
+# Diskutrymme. En full disk stoppar både databasen och nästa kopia, så det är
+# värt att säga ifrån innan det händer.
+ANVANT=$(df --output=pcent "$DIR" | tail -1 | tr -dc '0-9')
+if [ "${ANVANT:-0}" -ge "${DISK_WARN_PERCENT:-85}" ]; then
+  echo "VARNING: disken är ${ANVANT}% full" >&2
+fi
+
 # Rensa gamla kopior.
 find "$DIR" -name "db-*.sql.gz" -mtime "+$KEEP_DAYS" -delete
 find "$DIR" -name "uploads-*.tar.gz" -mtime "+$KEEP_DAYS" -delete

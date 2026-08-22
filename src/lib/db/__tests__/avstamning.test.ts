@@ -38,7 +38,8 @@ beforeAll(async () => {
   }
 
   const [c] = await owner`insert into users (email, name) values ('c@x.se', 'Caesar') returning id`;
-  const [f] = await owner`insert into users (email, name) values ('f@x.se', 'Felicia') returning id`;
+  const [f] =
+    await owner`insert into users (email, name) values ('f@x.se', 'Felicia') returning id`;
   const [u] = await owner`insert into users (email, name) values ('u@x.se', 'Utom') returning id`;
   const [h] = await owner`insert into households (name) values ('Caesar & Felicia') returning id`;
   ids.caesar = c.id;

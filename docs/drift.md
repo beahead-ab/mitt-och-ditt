@@ -405,6 +405,92 @@ antal försök och en kort felkod. Aldrig innehållet, aldrig en token. Ett mail
 gett upp kan köas om därifrån, förutsatt att innehållet inte redan städats bort;
 har det gjort det måste handlingen göras om, till exempel med en ny inbjudan.
 
+### 5.11 Övervakning och larm
+
+Tjänsten svarar på `/api/halsa` utan inloggning. Svaret innehåller inga
+adresser, inga hemligheter och inget om ekonomin.
+
+```sh
+curl -s https://mittochditt.goodstuff.se/api/halsa
+```
+
+**Två signaler hålls isär med flit.** `status` säger om tjänsten fungerar för
+användarna – appen svarar och databasen går att fråga. `mail` är en egen signal.
+Att mailservern strular är värt ett larm, men det gör inte tjänsten nere, och ett
+larm som ropar "nere" när man i själva verket bara inte kan skicka inbjudningar
+slutar man snart lyssna på.
+
+| Larm | Så upptäcks det |
+|---|---|
+| Appen nere | `/api/halsa` svarar inte, eller ger 503 |
+| Databasen nere | `databas` är `nere` i svaret, och statuskoden blir 503 |
+| Fem mailfel i rad | `mailMisslyckadeIRad` är 5 eller mer, eller `mail` är `fel` |
+| Eftersläpning i mailkön | `mail` är `eftersläpning` – fler än femtio väntande |
+| Säkerhetskopian saknas eller är tom | `deploy/backup.sh` avslutar med felkod och skriver till loggen |
+| Disken nästan full | Skriptet varnar vid 85 procent; ändras med `DISK_WARN_PERCENT` |
+
+Kopieringsskriptet avslutar med felkod när något gått fel, så en övervakare som
+läser exitkoden – eller cron som mailar felutskriften – räcker för de två sista
+raderna. Sätt upp övervakningen så att den larmar på **utebliven** körning också;
+en kopia som aldrig startade ser annars ut som en kopia som gick bra.
+
+### 5.12 Kopia utanför servern
+
+En kopia på samma maskin hjälper vid ett vanligt fel men inte om hela servern
+försvinner – och det är just då man behöver den.
+
+Sätt i serverns miljöfil:
+
+```sh
+BACKUP_PASSPHRASE=       # openssl rand -base64 32, skild från allt annat
+BACKUP_REMOTE=           # rclone-mål, till exempel spaces:mittochditt-backup
+```
+
+Kopian **krypteras på servern innan den lämnar den**, med AES-256 och en nyckel
+härledd ur lösenfrasen. Lagringen får aldrig se innehållet, och den som kommer
+över kopian har ingenting utan lösenfrasen.
+
+Saknas någon av variablerna hoppas steget över med ett tydligt meddelande i
+loggen. Tyst avstängt vore värre: då hade man trott sig ha en kopia utanför
+servern utan att ha det.
+
+**Förvara lösenfrasen någon annanstans än på servern.** Ligger den bara där är
+den borta i samma stund som kopian behövs.
+
+### 5.13 Återställningsövning
+
+Gör den innan Caesar och Felicia fyller i bindande startuppgifter, och sedan en
+gång om året. En otestad kopia är inte en kopia.
+
+```sh
+# 1. Hämta hem den senaste kopian och lås upp den
+rclone copy "$BACKUP_REMOTE/db-<tidsstämpel>.sql.gz.enc" .
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  -pass env:BACKUP_PASSPHRASE -in db-<tidsstämpel>.sql.gz.enc -out db.sql.gz
+
+# 2. Kontrollera att strömmen är hel innan något återställs
+gzip -t db.sql.gz
+
+# 3. Återställ till en tom databas, inte till den som används
+docker compose exec -T db createdb -U mittochditt aterstallning
+gunzip -c db.sql.gz | docker compose exec -T db psql -U mittochditt aterstallning
+
+# 4. Kontrollera att innehållet finns och att kedjan håller
+docker compose exec -T db psql -U mittochditt aterstallning \
+  -c "select count(*) from transactions" \
+  -c "select * from verify_audit_chain()"
+
+# 5. Städa
+docker compose exec -T db dropdb -U mittochditt aterstallning
+```
+
+Bilagorna återställs på samma sätt: lås upp arkivet, packa upp det i en tom
+katalog och jämför antalet filer med `select count(*) from attachments where
+redacted_at is null`.
+
+Anteckna datum och utfall. Går något inte att återställa är det bättre att veta
+det nu än den dagen det gäller.
+
 ## 6. Flytta tjänsten någon annanstans
 
 1. `deploy/backup.sh` på den gamla servern.
