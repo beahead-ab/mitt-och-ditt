@@ -23,6 +23,33 @@ import type {
 export const ENGINE_VERSION = "1.1.0";
 
 /**
+ * Avtalsmodeller motorn kan räkna.
+ *
+ * En ny mallversion som bara rör formuleringar och frister är samma modell.
+ * Ändras kärnan - punkterna om andelsenheter, överbetalning och avräkning -
+ * är det en ny modell, och då ska motorn vägra i stället för att räkna på fel
+ * regler.
+ */
+export const SUPPORTED_MODEL_VERSIONS: readonly string[] = ["1"];
+export const DEFAULT_MODEL_VERSION = "1";
+
+/** Kastas när avtalet förutsätter en modell den här motorn inte kör. */
+export class ModelVersionError extends Error {
+  readonly modelVersion: string;
+  readonly supported: readonly string[];
+
+  constructor(modelVersion: string) {
+    super(
+      `Avtalet förutsätter beräkningsmodell ${modelVersion}. Den här installationen kör ` +
+        `${SUPPORTED_MODEL_VERSIONS.join(", ")}.`,
+    );
+    this.name = "ModelVersionError";
+    this.modelVersion = modelVersion;
+    this.supported = SUPPORTED_MODEL_VERSIONS;
+  }
+}
+
+/**
  * Linjärt beräknat bostadsvärde på dag d (avtal 8.2):
  *
  *   Startvärde + (Slutvärde − Startvärde) × (dagar start→d / dagar start→slut)
@@ -78,6 +105,13 @@ export function calculate(input: EngineInput): EngineResult {
   const warnings: string[] = [];
   const excluded: ExcludedTransaction[] = [];
 
+  // Ett avtal som förutsätter en modell motorn inte kör ska ge ett fel, inte
+  // ett resultat. Ett tal som ser rimligt ut men bygger på fel regler är
+  // farligare än inget tal alls: det går att fatta beslut på.
+  const modell = agreement.modelVersion ?? DEFAULT_MODEL_VERSION;
+  if (!SUPPORTED_MODEL_VERSIONS.includes(modell)) {
+    throw new ModelVersionError(modell);
+  }
   if (agreement.totalUnits <= 0) {
     throw new Error("Totalt antal andelsenheter måste vara större än noll.");
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculate, netPayment } from "../engine";
+import { calculate, ModelVersionError, netPayment } from "../engine";
 import { addDays } from "../dates";
 import { kr, toKronor } from "../money";
 import { AGREEMENT, CAESAR, FELICIA, RULES, START_DATE, flatEndpoint, input, tx } from "./fixtures";
@@ -628,5 +628,43 @@ describe("Partsnycklarna är nycklar, inte namn", () => {
     expect(framlänges.finalUnits.aaa).toBeGreaterThan(1_200_000);
     expect(framlänges.settlement.checks.positionsBalance).toBe(0);
     expect(baklänges.settlement.checks.positionsBalance).toBe(0);
+  });
+});
+
+describe("Avtalsmodellen motorn förutsätter", () => {
+  /**
+   * ENGINE_VERSION säger vad koden är. modelVersion säger vad handlingen
+   * bygger på. Med flera par kommer avtal skrivna under olika mallversioner
+   * att möta samma motor, och ett tal som ser rimligt ut men bygger på fel
+   * regler är farligare än inget tal alls - det går att fatta beslut på.
+   */
+  it("räknar när modellen är den motorn kör", () => {
+    const result = calculate(input({ agreement: { ...AGREEMENT, modelVersion: "1" } }));
+    expect(result.settlement.checks.positionsBalance).toBe(0);
+  });
+
+  it("utelämnad modell betyder den enda som funnits", () => {
+    expect(() => calculate(input())).not.toThrow();
+  });
+
+  it("vägrar räkna på en modell den inte kör", () => {
+    expect(() => calculate(input({ agreement: { ...AGREEMENT, modelVersion: "2" } }))).toThrow(
+      ModelVersionError,
+    );
+  });
+
+  it("felet säger vilken modell som krävs och vilka som körs", () => {
+    try {
+      calculate(input({ agreement: { ...AGREEMENT, modelVersion: "42" } }));
+      throw new Error("Skulle ha kastat.");
+    } catch (fel) {
+      expect(fel).toBeInstanceOf(ModelVersionError);
+      const m = fel as ModelVersionError;
+      expect(m.modelVersion).toBe("42");
+      expect(m.supported).toContain("1");
+      // Meddelandet ska gå att visa för en part, inte bara för en utvecklare.
+      expect(m.message).toContain("42");
+      expect(m.message).toMatch(/installation/);
+    }
   });
 });

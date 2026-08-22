@@ -158,10 +158,11 @@ async function readAgreement(
       total_units: string;
       start_units: Record<string, number>;
       formal_ownership: Record<string, number> | null;
+      model_version: string;
     }[]
   >`
     select v.start_date, v.start_value_ore, v.initial_loan_ore, v.total_units,
-           v.start_units, v.formal_ownership
+           v.start_units, v.formal_ownership, v.model_version
     from agreement_versions v
     -- Det boende som gäller nu. Med en boendekedja finns flera avtal, och
     -- "högsta versionsnumret i hushållet" skulle blanda ihop två bostäder.
@@ -183,6 +184,7 @@ async function readAgreement(
     startUnits: row.start_units,
     formalOwnership: row.formal_ownership ?? undefined,
     totalUnits: Number(row.total_units),
+    modelVersion: row.model_version,
   };
 }
 

@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/app-shell";
 import { Explain, TERMS } from "@/components/explain";
 import { ExportMenu } from "@/components/export-menu";
 import { useHousehold, usePartyName } from "@/components/household-context";
+import { ModelRefusal } from "@/components/model-refusal";
+import type { ModelVersionError } from "@/lib/engine/engine";
 import { NoHousehold } from "@/components/no-household";
 import { Uppstart } from "@/components/uppstart";
 import { Räknare, StatusCard } from "@/components/status-card";
@@ -17,11 +19,21 @@ import { useExports } from "@/hooks/use-exports";
 import { useHouseholdData } from "@/hooks/use-household-data";
 import { useMyParty } from "@/hooks/use-my-party";
 import { useMyTurn } from "@/hooks/use-my-turn";
-import { defaultEndpoint, missingReceipts, run } from "@/lib/calculation";
+import { defaultEndpoint, missingReceipts, run, runOrRefuse } from "@/lib/calculation";
 import { isDemo } from "@/lib/demo";
 import { toKronor } from "@/lib/engine";
 import { fmtAndel, fmtDate, fmtKr } from "@/lib/format";
 import { reconciliationState } from "@/lib/reconciliation.functions";
+
+/** Antingen ett resultat, eller ett läge där motorn vägrar räkna. */
+type Beräkning =
+  | {
+      slag: "resultat";
+      endpoint: ReturnType<typeof defaultEndpoint>;
+      result: ReturnType<typeof run>;
+    }
+  | { slag: "vägran"; error: ModelVersionError }
+  | null;
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({ meta: [{ title: "Översikt – Mitt & Ditt" }] }),
@@ -56,10 +68,12 @@ function Overview() {
   const withAttachment = useAttachmentReferences();
   const { summaryExports } = useExports(agreement);
 
-  const computed = useMemo(() => {
+  const computed = useMemo((): Beräkning => {
     if (!agreement) return null;
     const end = defaultEndpoint(agreement, rules, transactions);
-    return { endpoint: end, result: run(agreement, rules, transactions, end) };
+    const svar = runOrRefuse(agreement, rules, transactions, end);
+    if (!svar.ok) return { slag: "vägran", error: svar.error };
+    return { slag: "resultat", endpoint: end, result: svar.result };
   }, [agreement, rules, transactions]);
 
   // Vad ett godkännande faktiskt innebär, räknat i samma motor som avräkningen.
@@ -67,7 +81,7 @@ function Overview() {
   // "godkänner du det här, och vad blir din andel då?".
   const konsekvens = useMemo(() => {
     const post = minTur.items[0];
-    if (!post || !agreement || !computed || !myPartyId) return null;
+    if (!post || !agreement || computed?.slag !== "resultat" || !myPartyId) return null;
 
     const medPosten = transactions.map((tx) =>
       tx.id === post.transaction.id ? { ...tx, status: "approved" as const } : tx,
@@ -95,7 +109,21 @@ function Overview() {
   // Utan gällande överenskommelse *är* översikten uppstartslistan. Att visa
   // ett tomt läge vore att svara på fel fråga: paret vet redan att inget är
   // ifyllt, de vill veta vad som är kvar och vems tur det är.
-  if (!agreement || !computed) {
+  // Avtalet förutsätter en modell den här installationen inte kör. Då visas
+  // inga andelar och ingen avräkning alls.
+  if (computed?.slag === "vägran") {
+    return (
+      <>
+        <PageHeader
+          eyebrow={household?.propertyAddress ?? "Bostaden"}
+          title="Om ni avräknar idag"
+        />
+        <ModelRefusal error={computed.error} />
+      </>
+    );
+  }
+
+  if (!agreement || computed?.slag !== "resultat") {
     return <Uppstart loading={isLoading} />;
   }
 

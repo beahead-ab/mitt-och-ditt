@@ -1,3 +1,4 @@
+import { ModelVersionError } from "@/lib/engine/engine";
 import {
   calculate,
   compareDates,
@@ -171,4 +172,22 @@ export function awaitingMyDecision(
     if (registeredByPartyId === myPartyId || iHaveDecided) return [];
     return [{ transaction, registeredByPartyId }];
   }) as { transaction: Transaction; registeredByPartyId: string }[];
+}
+
+/**
+ * Kör motorn, men skilj vägran från krasch.
+ *
+ * Att avtalet förutsätter en modell den här installationen inte kör är inget
+ * fel i koden - det är ett läge tjänsten ska kunna visa och förklara. Övriga
+ * fel får fortsätta bubbla, för de betyder att något är trasigt.
+ */
+export function runOrRefuse(
+  ...args: Parameters<typeof run>
+): { ok: true; result: ReturnType<typeof run> } | { ok: false; error: ModelVersionError } {
+  try {
+    return { ok: true, result: run(...args) };
+  } catch (fel) {
+    if (fel instanceof ModelVersionError) return { ok: false, error: fel };
+    throw fel;
+  }
 }

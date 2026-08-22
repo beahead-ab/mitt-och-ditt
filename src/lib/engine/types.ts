@@ -28,6 +28,14 @@ export type AgreementParams = {
   /** Formell ägarandel enligt köpehandling/förening. Påverkar inte motorn. */
   formalOwnership?: ByParty<number>;
   /**
+   * Vilken avtalsmodell handlingen förutsätter (avtal 25).
+   *
+   * Skild från ENGINE_VERSION, som är byggets version. Den säger vad koden
+   * är; den här säger vad handlingen bygger på. Utelämnad betyder modell 1 -
+   * den enda som funnits.
+   */
+  modelVersion?: string;
+  /**
    * Totalt antal andelsenheter. Normalt summan av startenheterna. Modellen
    * flyttar enheter mellan parterna men skapar aldrig nya (avtal 6.2).
    */

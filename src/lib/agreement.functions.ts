@@ -176,8 +176,15 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
       const formalOwnership = Object.fromEntries(
         roles.map((role) => [role, data.formalPercentByParty[role] / 100]),
       );
+      // Modellversionen ingår i checksumman: den är en del av vad parterna
+      // godkänner. Ett avtal som senare påstås förutsätta en annan modell ska
+      // inte kunna göra det utan att summan slutar stämma.
+      const { DEFAULT_MODEL_VERSION } = await import("@/lib/engine/engine");
+      const modelVersion = DEFAULT_MODEL_VERSION;
+
       const canonical = JSON.stringify({
         version,
+        modelVersion,
         address: data.address,
         association: data.association || null,
         apartmentNumber: data.apartmentNumber || null,
@@ -225,12 +232,13 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
       const [draft] = await sql<{ id: string }[]>`
         insert into agreement_versions (
           agreement_id, version, start_date, start_value_ore, initial_loan_ore,
-          total_units, start_units, formal_ownership, document_md, checksum,
+          total_units, start_units, formal_ownership, model_version, document_md, checksum,
           created_by, reason
         ) values (
           ${agreement.id}, ${version}, ${data.startDate}, ${kr(data.startValueKr)},
           ${kr(data.initialLoanKr)}, ${Object.values(startUnits).reduce((a, b) => a + b, 0)},
-          ${sql.json(startUnits)}, ${sql.json(formalOwnership)}, ${documentMd}, ${checksum},
+          ${sql.json(startUnits)}, ${sql.json(formalOwnership)}, ${modelVersion}, ${documentMd},
+          ${checksum},
           ${user.id}, ${version === 1 ? "Startuppgifter registrerade av parterna" : "Korrigerat utkast före start"}
         ) returning id
       `;
