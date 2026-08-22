@@ -44,6 +44,12 @@ export type GridColumn<T> = {
   sortValue?: (row: T) => string | number | null;
   /** Talkolumner får tabulära siffror och högerställs som standard. */
   numeric?: boolean;
+  /**
+   * Kolumner som nästan alltid är tomma. De göms i tätt läge - de åt 30 rem
+   * bredd för att visa tankstreck i fem rader av sex, och trängde ut Status
+   * och beloppen ur synfältet.
+   */
+  sällan?: boolean;
 };
 
 type Props<T> = {
@@ -273,7 +279,7 @@ export function DataGrid<T>({
                       onClick={() => setSort((current) => nextSort(current, column.key))}
                       style={colIndex === 0 ? { left: GUTTER, boxShadow: FROZEN_EDGE } : undefined}
                       className={cn(
-                        "flex items-center gap-1 border-r border-hairline bg-secondary px-3 py-2 text-left text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground transition-colors last:border-r-0 hover:text-foreground",
+                        "flex items-center gap-1 border-r border-hairline bg-secondary px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-[oklch(0.35_0.02_60)] transition-colors last:border-r-0 hover:text-foreground",
                         column.align === "right" || column.numeric
                           ? "justify-end"
                           : "justify-start",

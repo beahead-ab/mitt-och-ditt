@@ -6,13 +6,16 @@ import { toast } from "sonner";
 import { useHousehold } from "@/components/household-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyField } from "@/components/money-field";
+import { tolkaBelopp } from "@/lib/belopp";
 import { Label } from "@/components/ui/label";
 import { createInitialAgreementDraft, pendingAgreement } from "@/lib/agreement.functions";
 import { toKronor } from "@/lib/engine";
 import { fmtKr } from "@/lib/format";
 
+/** Tomt fält är inte noll. Se lib/belopp.ts. */
 function asNumber(value: string): number {
-  return Number(value.replace(/\s/g, ""));
+  return tolkaBelopp(value) ?? Number.NaN;
 }
 
 /** Gemensam uppstart: parterna fyller själva i alla bostads- och startvärden. */
@@ -319,16 +322,17 @@ function MoneyInput({
   value: string;
   setValue: (value: string) => void;
 }) {
+  // Omslag mot det delade fältet så länge formuläret bär sina värden som
+  // text. Skillnaden mot förut är att tomt fält inte längre blir noll: det
+  // gjorde att villkorsmeningen "insatserna ska motsvara nettokapitalet"
+  // plötsligt stämde när man rensat ett fält för att skriva om det.
   return (
-    <Input
+    <MoneyField
       id={id}
-      type="number"
-      min="0"
-      step="1"
-      inputMode="numeric"
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      required
+      className="h-9 w-full"
+      suffix={null}
+      value={tolkaBelopp(value)}
+      onChange={(tal) => setValue(tal === null ? "" : String(tal))}
     />
   );
 }
@@ -343,16 +347,16 @@ function PercentInput({
   setValue: (value: string) => void;
 }) {
   return (
-    <Input
-      id={id}
-      type="number"
-      min="0"
-      max="100"
-      step="0.01"
-      inputMode="decimal"
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      required
-    />
+    <div className="flex items-center gap-1.5">
+      <Input
+        id={id}
+        inputMode="decimal"
+        className="tabular h-9 text-right"
+        value={value}
+        placeholder="0"
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <span className="text-xs text-muted-foreground">%</span>
+    </div>
   );
 }

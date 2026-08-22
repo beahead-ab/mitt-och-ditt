@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import { PageHeader } from "@/components/app-shell";
+import { MoneyField } from "@/components/money-field";
 import { Explain, TERMS } from "@/components/explain";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,6 +100,7 @@ function SimulatorFor({
   const [endValue, setEndValue] = useState(toKronor(agreement.startValue));
   const [endLoan, setEndLoan] = useState(toKronor(base.endLoan));
   const [saleCosts, setSaleCosts] = useState(0);
+  const [öppetAntagande, setÖppetAntagande] = useState<string | null>(null);
   const [scenario, setScenario] = useState(10);
   const [scenarioNamn, setScenarioNamn] = useState("");
 
@@ -275,12 +277,87 @@ function SimulatorFor({
 
   return (
     <>
+      {/* Rubriken är antagandet i klartext. Sidan handlade tidigare om fem
+          inmatningsrutor och två diagram, och svaret - sidans hela syfte - stod
+          först längst ner. */}
       <PageHeader
         eyebrow="Prognos"
-        title="Simulator"
-        description="Testa olika slutvärden och se hur andelar och utbetalning påverkas."
+        title={`Om ni säljer ${fmtDate(endDate)} för ${fmtKr(endValue)}`}
         info={<Explain {...TERMS.prognos} />}
       />
+
+      <section className="mb-4 grid gap-4 sm:grid-cols-2">
+        {[a, b].map((party) => (
+          <div key={party} className="tile-surface p-5">
+            <p className="eyebrow">{partyName(party)} får</p>
+            <p className="tabular mt-1 font-serif text-[44px] font-medium leading-none tracking-tight">
+              {fmtKr(toKronor(result.settlement.finalPosition[party]))}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {fmtAndel(result.finalShares[party])} av försäljningsnettot{" "}
+              {fmtKr(toKronor(result.settlement.saleNet))}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* Antagandena som en rad chips. Den som vill ändra ett klickar på det;
+          den som bara vill se svaret slipper fem fält före det. */}
+      <section className="mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { nyckel: "datum", text: fmtDate(endDate) },
+            { nyckel: "varde", text: `Värde ${fmtKr(endValue)}` },
+            { nyckel: "lan", text: `Lån ${fmtKr(endLoan)}` },
+            { nyckel: "kostnader", text: `Kostnader ${fmtKr(saleCosts)}` },
+            { nyckel: "spann", text: `Spann ±${scenario} %` },
+          ].map((chip) => (
+            <button
+              key={chip.nyckel}
+              type="button"
+              onClick={() => setÖppetAntagande(öppetAntagande ? null : "alla")}
+              className={`h-8 rounded-full border px-3 text-sm transition-colors ${
+                öppetAntagande
+                  ? "border-primary bg-secondary"
+                  : "border-hairline hover:bg-secondary"
+              }`}
+            >
+              {chip.text}
+            </button>
+          ))}
+        </div>
+
+        {öppetAntagande && (
+          <div className="tile-surface mt-3 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Antagen slutdag">
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </Field>
+            <Field label="Antaget bostadsvärde">
+              <MoneyField value={endValue} onChange={(v) => setEndValue(v ?? 0)} className="h-9" />
+            </Field>
+            <Field label="Kvarvarande lån">
+              <MoneyField value={endLoan} onChange={(v) => setEndLoan(v ?? 0)} className="h-9" />
+            </Field>
+            <Field label="Faktiska försäljningskostnader">
+              <MoneyField
+                value={saleCosts}
+                onChange={(v) => setSaleCosts(v ?? 0)}
+                className="h-9"
+              />
+            </Field>
+            <Field label={`Scenario ±${scenario} %`}>
+              <Input
+                type="range"
+                min={0}
+                max={30}
+                step={1}
+                value={scenario}
+                onChange={(e) => setScenario(Number(e.target.value))}
+              />
+            </Field>
+          </div>
+        )}
+      </section>
 
       <p className="mb-6 rounded-md border border-hairline bg-secondary/60 p-3 text-sm leading-relaxed">
         Detta är en prognos. Resultatet blir bindande enligt avtalet först när verkligt
@@ -288,44 +365,48 @@ function SimulatorFor({
         här sparas eller påverkar avtal, transaktioner eller godkända andelar.
       </p>
 
-      <section className="tile-surface mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Antagen slutdag">
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </Field>
-        <Field label="Antaget bostadsvärde">
-          <Input
-            type="number"
-            inputMode="numeric"
-            value={endValue}
-            onChange={(e) => setEndValue(Number(e.target.value))}
-          />
-        </Field>
-        <Field label="Kvarvarande lån">
-          <Input
-            type="number"
-            inputMode="numeric"
-            value={endLoan}
-            onChange={(e) => setEndLoan(Number(e.target.value))}
-          />
-        </Field>
-        <Field label="Faktiska försäljningskostnader">
-          <Input
-            type="number"
-            inputMode="numeric"
-            value={saleCosts}
-            onChange={(e) => setSaleCosts(Number(e.target.value))}
-          />
-        </Field>
-        <Field label={`Scenario ±${scenario} %`}>
-          <Input
-            type="range"
-            min={0}
-            max={30}
-            step={1}
-            value={scenario}
-            onChange={(e) => setScenario(Number(e.target.value))}
-          />
-        </Field>
+      {/* Spannet som en tabell, inte som två kort 900 px från reglaget. Tre
+          kolumner: sämre, valt, bättre - så jämförelsen går att läsa på en rad. */}
+      <section className="tile-surface mb-6 overflow-x-auto p-5">
+        <p className="eyebrow mb-3">Om värdet blir ett annat</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Part</TableHead>
+              <TableHead className="text-right">−{scenario} %</TableHead>
+              <TableHead className="text-right">Valt värde</TableHead>
+              <TableHead className="text-right">+{scenario} %</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[a, b].map((party) => (
+              <TableRow key={party}>
+                <TableCell>{partyName(party)}</TableCell>
+                <TableCell className="tabular text-right text-muted-foreground">
+                  {down ? fmtKr(toKronor(down.settlement.finalPosition[party])) : "–"}
+                </TableCell>
+                <TableCell className="tabular text-right font-medium">
+                  {fmtKr(toKronor(result.settlement.finalPosition[party]))}
+                </TableCell>
+                <TableCell className="tabular text-right text-muted-foreground">
+                  {up ? fmtKr(toKronor(up.settlement.finalPosition[party])) : "–"}
+                </TableCell>
+              </TableRow>
+            ))}
+            <TableRow>
+              <TableCell className="text-muted-foreground">Intern andel</TableCell>
+              <TableCell className="tabular text-right text-muted-foreground">
+                {down ? fmtAndel(down.finalShares[a]) : "–"}
+              </TableCell>
+              <TableCell className="tabular text-right text-muted-foreground">
+                {fmtAndel(result.finalShares[a])}
+              </TableCell>
+              <TableCell className="tabular text-right text-muted-foreground">
+                {up ? fmtAndel(up.finalShares[a]) : "–"}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </section>
 
       {!isDemo && (
@@ -541,7 +622,9 @@ function SimulatorFor({
                 />
                 <YAxis
                   width={58}
-                  domain={[0, 100]}
+                  // 0-100 % gör en förskjutning på 2,6 procentenheter till två
+                  // raka linjer. Skalan följer serien i stället, med marginal.
+                  domain={["dataMin", "dataMax"]}
                   ticks={[0, 25, 50, 75, 100]}
                   tickFormatter={(v: number) => `${v} %`}
                   tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
@@ -628,26 +711,6 @@ function SimulatorFor({
           {result.settlement.checks.ok ? "att allt stämmer." : "en avvikelse som måste utredas."}
         </p>
       </section>
-
-      <section className="tile-surface p-5">
-        <p className="eyebrow mb-3">Om värdet blir ett annat</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Sensitivity
-            label={`Vid +${scenario} %`}
-            color={SERIES.upp.color}
-            values={up ? [up.settlement.finalPosition[a], up.settlement.finalPosition[b]] : null}
-            parties={[partyName(a), partyName(b)]}
-          />
-          <Sensitivity
-            label={`Vid −${scenario} %`}
-            color={SERIES.ned.color}
-            values={
-              down ? [down.settlement.finalPosition[a], down.settlement.finalPosition[b]] : null
-            }
-            parties={[partyName(a), partyName(b)]}
-          />
-        </div>
-      </section>
     </>
   );
 }
@@ -711,38 +774,5 @@ function Row({
         {children[1]}
       </TableCell>
     </TableRow>
-  );
-}
-
-function Sensitivity({
-  label,
-  color,
-  values,
-  parties,
-}: {
-  label: string;
-  color: string;
-  values: [number, number] | null;
-  parties: [string, string];
-}) {
-  return (
-    <div className="rounded-md border border-hairline p-3">
-      <div className="flex items-center gap-1.5">
-        <span className="size-2 rounded-full" style={{ background: color }} aria-hidden />
-        <p className="text-xs font-medium">{label}</p>
-      </div>
-      {values ? (
-        <dl className="mt-2 grid gap-1 text-sm">
-          {parties.map((name, i) => (
-            <div key={name} className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">{name}</dt>
-              <dd className="tabular">{fmtKr(toKronor(values[i]))}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <p className="mt-2 text-sm text-muted-foreground">Kunde inte beräknas.</p>
-      )}
-    </div>
   );
 }

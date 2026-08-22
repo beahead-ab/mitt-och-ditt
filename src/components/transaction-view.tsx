@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { DataGrid } from "@/components/data-grid";
 import { usePartyName } from "@/components/household-context";
@@ -28,7 +28,17 @@ export function TransactionView({
   onActivate?: (tx: Transaction) => void;
 }) {
   const partyName = usePartyName();
-  const columns = transactionColumns(agreement, rules, partyName);
+  const [vid, setVid] = useState(false);
+
+  // Tätt läge som standard: fyra kolumner är tomma i fem rader av sex och åt
+  // 30 rem bredd, vilket tryckte ut Status och beloppen ur synfältet. Den som
+  // behöver dem slår på vitt läge.
+  const alla = useMemo(
+    () => transactionColumns(agreement, rules, partyName),
+    [agreement, rules, partyName],
+  );
+  const columns = useMemo(() => (vid ? alla : alla.filter((c) => !c.sällan)), [alla, vid]);
+  const dolda = alla.length - columns.length;
 
   // Cellens historik härleds ur postens versioner med samma formatering som
   // rutnätet visar, så historiken kan aldrig säga emot det synliga värdet.
@@ -45,6 +55,17 @@ export function TransactionView({
   return (
     <>
       <div className="hidden md:block">
+        {dolda > 0 || vid ? (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setVid((v) => !v)}
+              className="text-sm text-primary underline underline-offset-4"
+            >
+              {vid ? "Visa färre kolumner" : `Visa ${dolda} kolumner till`}
+            </button>
+          </div>
+        ) : null}
         <DataGrid
           caption="Transaktioner"
           columns={columns}

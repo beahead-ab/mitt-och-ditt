@@ -36,6 +36,15 @@ import { settlementMarkdown, type ValueBasis } from "@/lib/export/settlement";
 import { fmtDateTime, fmtKr } from "@/lib/format";
 import { approveDocumentFn } from "@/lib/transactions.functions";
 
+function Uppställning({ label, värde, stark }: { label: string; värde: string; stark?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-3 ${stark ? "border-t border-hairline pt-1.5" : ""}`}>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={`tabular ${stark ? "font-medium" : ""}`}>{värde}</dd>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/forsaljning/slutavrakning")({
   head: () => ({ meta: [{ title: "Slutavräkning – Mitt & Ditt" }] }),
   component: SettlementPage,
@@ -291,6 +300,17 @@ function SettlementCard({
     onError: () => toast.error("Kunde inte verifiera avräkningen."),
   });
 
+  // De två tal parterna väntar på - vad var och en får - fanns bara i
+  // protokollet. Kortet ledde i stället med slutvärdet, som är bostadens tal.
+  const fryst = useQuery({
+    queryKey: ["settlement-result", settlement.id],
+    queryFn: async () => {
+      const raw = await getSettlementResult({ data: { householdId, settlementId: settlement.id } });
+      return raw ? (JSON.parse(raw) as EngineResult) : null;
+    },
+    staleTime: Infinity,
+  });
+
   async function protocol(as: "pdf" | "md") {
     if (!agreement) return;
     const raw = await getSettlementResult({ data: { householdId, settlementId: settlement.id } });
@@ -327,22 +347,24 @@ function SettlementCard({
   const iHaveApproved = myPartyId ? settlement.approvedBy.includes(myPartyId) : false;
 
   return (
-    <section className="tile-surface p-5">
+    <section className="tile-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {settlement.lockedAt && <Lock className="size-3.5 text-muted-foreground" />}
-            <p className="text-sm font-medium">Slutvärde {fmtKr(toKronor(settlement.endValue))}</p>
-          </div>
-          <p className="tabular mt-0.5 text-xs text-muted-foreground">
-            Skapad {fmtDateTime(settlement.createdAt)} · motor {settlement.engineVersion} ·
-            checksumma {settlement.checksum.slice(0, 16)}…
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {settlement.lockedAt
-              ? `Låst ${fmtDateTime(settlement.lockedAt)}. Kan inte ändras.`
-              : `Godkänd av ${settlement.approvedBy.length} av 2 parter.`}
-          </p>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow">Utfall</p>
+          {fryst.data ? (
+            <div className="mt-2 grid gap-4 sm:grid-cols-2">
+              {agreement?.parties.map((party) => (
+                <div key={party}>
+                  <p className="text-sm text-muted-foreground">{names[party] ?? party} får</p>
+                  <p className="tabular font-serif text-[36px] font-medium leading-none tracking-tight">
+                    {fmtKr(toKronor(fryst.data!.settlement.finalPosition[party]))}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">Hämtar den frysta beräkningen …</p>
+          )}
         </div>
         <ExportMenu
           label="Protokoll"
@@ -362,7 +384,52 @@ function SettlementCard({
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
+      <dl className="mt-5 grid gap-1.5 border-t border-hairline pt-4 text-sm">
+        <Uppställning label="Slutvärde" värde={fmtKr(toKronor(settlement.endValue))} />
+        <Uppställning label="Kvarvarande lån" värde={`− ${fmtKr(toKronor(settlement.endLoan))}`} />
+        <Uppställning
+          label="Försäljningskostnader"
+          värde={`− ${fmtKr(toKronor(settlement.saleCosts))}`}
+        />
+        <Uppställning
+          label="Försäljningsnetto"
+          värde={fmtKr(toKronor(settlement.endValue - settlement.endLoan - settlement.saleCosts))}
+          stark
+        />
+        {fryst.data &&
+          agreement?.parties.map((party) => (
+            <Uppställning
+              key={`fordran-${party}`}
+              label={`Fordringar och utanför modellen, ${names[party] ?? party}`}
+              värde={fmtKr(
+                toKronor(
+                  fryst.data!.settlement.claimsNet[party] +
+                    fryst.data!.settlement.outsideNet[party],
+                ),
+              )}
+            />
+          ))}
+      </dl>
+
+      <p className="mt-4 border-t border-hairline pt-4 text-sm">
+        {settlement.lockedAt ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Lock className="size-3.5 text-muted-foreground" />
+            Låst {fmtDateTime(settlement.lockedAt)}. Kan inte ändras av någon roll.
+          </span>
+        ) : (
+          <>
+            Godkänd av {settlement.approvedBy.length} av 2.{" "}
+            {settlement.approvedBy.length > 0 && (
+              <span className="text-muted-foreground">
+                {settlement.approvedBy.map((p) => names[p] ?? p).join(", ")} har godkänt.
+              </span>
+            )}
+          </>
+        )}
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -370,7 +437,7 @@ function SettlementCard({
           onClick={() => verify.mutate()}
         >
           <RefreshCw className="mr-1.5 size-3.5" />
-          Verifiera igen
+          Räkna om ur samma indata
         </Button>
         {!settlement.lockedAt && myPartyId && (
           <Button size="sm" disabled={iHaveApproved || approving} onClick={onApprove}>
@@ -378,6 +445,11 @@ function SettlementCard({
           </Button>
         )}
       </div>
+
+      <p className="tabular mt-4 border-t border-hairline pt-3 text-xs text-muted-foreground">
+        Skapad {fmtDateTime(settlement.createdAt)} · motor {settlement.engineVersion} · checksumma{" "}
+        {settlement.checksum.slice(0, 16)}…
+      </p>
 
       {verification && (
         <div

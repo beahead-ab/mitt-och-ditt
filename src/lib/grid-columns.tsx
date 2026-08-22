@@ -97,6 +97,7 @@ export function transactionColumns(
     },
     {
       key: "model",
+      sällan: true,
       header: "I modellen",
       width: 7,
       text: (tx) => (ruleFor(rules, tx.category, tx.paymentDate)?.included ? "Ja" : "Nej"),
@@ -168,7 +169,19 @@ export function transactionColumns(
       sortValue: (tx) => net(tx, parties),
     },
     {
+      key: "status",
+      header: "Status",
+      width: 7,
+      text: (tx) => STATUS_LABEL[tx.status],
+      render: (tx) => (
+        <Badge variant={STATUS_VARIANT[tx.status]} className="text-[0.7rem]">
+          {STATUS_LABEL[tx.status]}
+        </Badge>
+      ),
+    },
+    {
       key: "key",
+      sällan: true,
       header: "Särskild nyckel",
       width: 8,
       numeric: true,
@@ -177,6 +190,7 @@ export function transactionColumns(
     },
     {
       key: "loan",
+      sällan: true,
       header: "Lånesaldo",
       width: 8,
       numeric: true,
@@ -190,18 +204,8 @@ export function transactionColumns(
       text: (tx) => tx.correctsId ?? "–",
     },
     {
-      key: "status",
-      header: "Status",
-      width: 7,
-      text: (tx) => STATUS_LABEL[tx.status],
-      render: (tx) => (
-        <Badge variant={STATUS_VARIANT[tx.status]} className="text-[0.7rem]">
-          {STATUS_LABEL[tx.status]}
-        </Badge>
-      ),
-    },
-    {
       key: "gross-total",
+      sällan: true,
       header: "Bruttobelopp",
       width: 8,
       numeric: true,
