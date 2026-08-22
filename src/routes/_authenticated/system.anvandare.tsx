@@ -32,7 +32,6 @@ function UsersPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const query = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => listUsers(),
@@ -50,12 +49,11 @@ function UsersPage() {
   });
 
   const create = useMutation({
-    mutationFn: () => createUser({ data: { name, email, password } }),
+    mutationFn: () => createUser({ data: { name, email } }),
     onSuccess: () => {
-      toast.success("Kontot skapat");
+      toast.success("Kontot skapat. En aktiveringslänk har köats till adressen.");
       setName("");
       setEmail("");
-      setPassword("");
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: Error) => toast.error(error.message || "Kunde inte skapa kontot."),
@@ -110,19 +108,10 @@ function UsersPage() {
                 required
               />
             </div>
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label htmlFor="new-user-password">Tillfälligt lösenord</Label>
-              <Input
-                id="new-user-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                minLength={8}
-                autoComplete="new-password"
-                required
-              />
+            <div className="sm:col-span-2">
               <p className="text-xs text-muted-foreground">
-                Minst 8 tecken. Användaren kan byta lösenord under Konto. Anslut kontot till ett
+                Kontot skapas utan lösenord. Personen får en aktiveringslänk på mail och väljer sitt
+                lösenord själv – du ska aldrig känna till någon annans. Anslut kontot till ett
                 hushåll via Inbjudningar.
               </p>
             </div>

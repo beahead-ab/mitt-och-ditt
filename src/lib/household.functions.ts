@@ -109,9 +109,11 @@ export const createPartnerInvite = createServerFn({ method: "POST" })
     const user = await signedIn();
     const { asUser } = await import("@/lib/db/client.server");
     const { INVITE_DAYS, expiresIn, hashToken, newToken } = await import("@/lib/auth/tokens");
+    const { köaInbjudan } = await import("@/lib/mail/invites.server");
     const token = newToken();
+    const giltigTill = expiresIn(INVITE_DAYS);
 
-    await asUser(user.id, async (sql) => {
+    const skapad = await asUser(user.id, async (sql) => {
       const [membership] = await sql<{ party_id: string }[]>`
         select party_id from household_members
         where household_id = ${data.householdId} and user_id = ${user.id}
@@ -147,7 +149,7 @@ export const createPartnerInvite = createServerFn({ method: "POST" })
         insert into invites
           (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
         values (${data.email}, ${hashToken(token)}, ${data.householdId}, ${targetParty},
-                ${data.displayName}, ${user.id}, ${expiresIn(INVITE_DAYS)})
+                ${data.displayName}, ${user.id}, ${giltigTill})
         returning id
       `;
       await sql`
@@ -158,6 +160,22 @@ export const createPartnerInvite = createServerFn({ method: "POST" })
           ${sql.json({ partyId: targetParty, email: data.email } as never)}
         )
       `;
+
+      const [hushall] = await sql<{ name: string }[]>`
+        select name from households where id = ${data.householdId}`;
+      return { id: invite.id, hushall: hushall?.name ?? "hushållet" };
+    });
+
+    // Mailet köas efter att inbjudan finns. Krånglar köandet visas länken ändå
+    // i gränssnittet, så flödet aldrig fastnar på att mailet inte gick.
+    await köaInbjudan({
+      inviteId: skapad.id,
+      email: data.email,
+      namn: data.displayName,
+      hushall: skapad.hushall,
+      token,
+      giltigTill,
+      householdId: data.householdId,
     });
 
     return { token, expiresInDays: INVITE_DAYS };
@@ -168,6 +186,7 @@ export const revokePartnerInvite = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await signedIn();
     const { asUser } = await import("@/lib/db/client.server");
+    const { avbrytInbjudningsmail } = await import("@/lib/mail/invites.server");
 
     await asUser(user.id, async (sql) => {
       const rows = await sql<{ id: string; household_id: string; party_id: string }[]>`
@@ -187,5 +206,6 @@ export const revokePartnerInvite = createServerFn({ method: "POST" })
       `;
     });
 
+    await avbrytInbjudningsmail(data.inviteId);
     return { ok: true as const };
   });

@@ -434,3 +434,67 @@ describeDb("Hela kedjan: från kö till levererat mail", () => {
     }
   });
 });
+
+describeDb("Inbjudningarnas mail", () => {
+  it("köar ett mail per inbjudan och avbryter det vid återkallande", async () => {
+    const { avbrytInbjudningsmail, köaInbjudan } = await import("../../mail/invites.server");
+
+    const inviteId = "11111111-1111-1111-1111-111111111111";
+    await köaInbjudan({
+      inviteId,
+      email: "ny@x.se",
+      namn: "Ny",
+      hushall: "Caesar & Felicia",
+      token: "hemlig-token-abc",
+      giltigTill: new Date(Date.now() + 7 * 864e5),
+      householdId: ids.household,
+    });
+
+    // Att köa samma inbjudan igen ska inte ge ett andra mail.
+    await köaInbjudan({
+      inviteId,
+      email: "ny@x.se",
+      namn: "Ny",
+      hushall: "Caesar & Felicia",
+      token: "hemlig-token-abc",
+      giltigTill: new Date(Date.now() + 7 * 864e5),
+      householdId: ids.household,
+    });
+
+    const rader = await owner`
+      select id, status from mail_messages
+      where idempotency_key like ${"invite:" + inviteId + ":%"}`;
+    expect(rader).toHaveLength(1);
+
+    // Token får inte ligga i klartext någonstans i raden.
+    const [innehall] = await owner`
+      select params_encrypted from mail_payloads where message_id = ${rader[0].id}`;
+    expect(innehall.params_encrypted).not.toContain("hemlig-token-abc");
+
+    expect(await avbrytInbjudningsmail(inviteId)).toBe(1);
+    const [efter] = await owner`select status from mail_messages where id = ${rader[0].id}`;
+    expect(efter.status).toBe("cancelled");
+  });
+
+  it("en ny inbjudan ger ett eget mail med mallen för ersatt inbjudan", async () => {
+    const { köaInbjudan } = await import("../../mail/invites.server");
+    const nyttId = "22222222-2222-2222-2222-222222222222";
+
+    await köaInbjudan({
+      inviteId: nyttId,
+      email: "ny@x.se",
+      namn: "Ny",
+      hushall: "Caesar & Felicia",
+      token: "en-annan-token",
+      giltigTill: new Date(Date.now() + 7 * 864e5),
+      householdId: ids.household,
+      ersatter: true,
+    });
+
+    const [rad] = await owner`
+      select template, status from mail_messages
+      where idempotency_key like ${"invite:" + nyttId + ":%"}`;
+    expect(rad.template).toBe("inbjudan_ny");
+    expect(rad.status).toBe("pending");
+  });
+});

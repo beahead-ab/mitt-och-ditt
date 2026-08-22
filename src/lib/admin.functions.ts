@@ -74,29 +74,38 @@ export const createUser = createServerFn({ method: "POST" })
       .object({
         name: z.string().trim().min(1).max(80),
         email: z.string().trim().toLowerCase().email().max(255),
-        password: z.string().min(8).max(400),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const user = await admin();
-    const { hashPassword } = await import("@/lib/auth/password");
-    const { asUser } = await import("@/lib/db/client.server");
+    const { asUser, owner } = await import("@/lib/db/client.server");
+    const { expiresIn, hashToken, newToken } = await import("@/lib/auth/tokens");
+    const { köaAktivering } = await import("@/lib/mail/invites.server");
 
+    /**
+     * Kontot skapas utan lösenord. Personen väljer det själv genom en länk.
+     *
+     * Administratören ska aldrig kunna välja någon annans lösenord: dels
+     * kunde hen då logga in som den personen, dels är ett lösenord som någon
+     * annan känner till inte längre ett bevis på vem som gjort vad - och hela
+     * tjänsten bygger på att det går att visa vem som godkänt.
+     */
+    let created: { id: string };
     try {
-      return await asUser(user.id, async (sql) => {
-        const [created] = await sql<{ id: string }[]>`
-          insert into users (email, name, password_hash)
-          values (${data.email}, ${data.name}, ${await hashPassword(data.password)})
+      created = await asUser(user.id, async (sql) => {
+        const [rad] = await sql<{ id: string }[]>`
+          insert into users (email, name)
+          values (${data.email}, ${data.name})
           returning id
         `;
         await sql`
           insert into audit_events
             (household_id, event_type, entity_type, entity_id, actor_id, new_value)
-          values (null, 'admin.user_created', 'user', ${created.id}, ${user.id},
+          values (null, 'admin.user_created', 'user', ${rad.id}, ${user.id},
                   ${sql.json({ email: data.email, name: data.name })})
         `;
-        return { id: created.id };
+        return rad;
       });
     } catch (error) {
       if ((error as { code?: string }).code === "23505") {
@@ -104,6 +113,24 @@ export const createUser = createServerFn({ method: "POST" })
       }
       throw error;
     }
+
+    // Aktiveringslänken går genom samma tabell som återställning. Den lever
+    // längre än en vanlig återställning, eftersom den ska hinna fram och
+    // användas av någon som ännu inte väntar på den.
+    const token = newToken();
+    const [reset] = await owner()<{ id: string }[]>`
+      insert into password_resets (user_id, token_hash, expires_at)
+      values (${created.id}, ${hashToken(token)}, ${expiresIn(7)})
+      returning id
+    `;
+    await köaAktivering({
+      resetId: reset.id,
+      email: data.email,
+      token,
+      recipientUserId: created.id,
+    });
+
+    return { id: created.id };
   });
 
 export const deleteUser = createServerFn({ method: "POST" })
@@ -312,6 +339,8 @@ export type AdminInvite = {
   expiresAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
+  /** Leveransen av inbjudningsmailet. Null när inget mail köats. */
+  mailStatus: string | null;
 };
 
 export const listInvites = createServerFn({ method: "GET" }).handler(
@@ -331,10 +360,15 @@ export const listInvites = createServerFn({ method: "GET" }).handler(
           expires_at: Date;
           accepted_at: Date | null;
           revoked_at: Date | null;
+          mail_status: string | null;
         }[]
       >`
         select i.id, i.email, i.display_name, i.party_id, h.name as household,
-               i.created_at, i.expires_at, i.accepted_at, i.revoked_at
+               i.created_at, i.expires_at, i.accepted_at, i.revoked_at,
+               (select m.status from mail_messages m
+                 where m.idempotency_key like 'invite:' || i.id::text || ':%'
+                   and m.template in ('inbjudan', 'inbjudan_ny')
+                 order by m.created_at desc limit 1) as mail_status
         from invites i join households h on h.id = i.household_id
         order by i.created_at desc
       `;
@@ -348,6 +382,7 @@ export const listInvites = createServerFn({ method: "GET" }).handler(
         expiresAt: row.expires_at.toISOString(),
         acceptedAt: row.accepted_at?.toISOString() ?? null,
         revokedAt: row.revoked_at?.toISOString() ?? null,
+        mailStatus: row.mail_status,
       }));
     });
   },
@@ -381,19 +416,110 @@ export const createInvite = createServerFn({ method: "POST" })
     const { asUser } = await import("@/lib/db/client.server");
     const { INVITE_DAYS, expiresIn, hashToken, newToken } = await import("@/lib/auth/tokens");
 
+    const { köaInbjudan } = await import("@/lib/mail/invites.server");
+
     const token = newToken();
-    await asUser(user.id, async (sql) => {
+    const giltigTill = expiresIn(INVITE_DAYS);
+
+    const skapad = await asUser(user.id, async (sql) => {
       const taken = await sql<{ id: string }[]>`
         select id from household_members
         where household_id = ${data.householdId} and party_id = ${data.partyId}`;
       if (taken[0]) throw new Error("Partsrollen är redan upptagen i hushållet.");
 
-      await sql`
+      const [rad] = await sql<{ id: string }[]>`
         insert into invites
           (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
         values (${data.email}, ${hashToken(token)}, ${data.householdId}, ${data.partyId},
-                ${data.displayName}, ${user.id}, ${expiresIn(INVITE_DAYS)})
+                ${data.displayName}, ${user.id}, ${giltigTill})
+        returning id
       `;
+      const [hushall] = await sql<{ name: string }[]>`
+        select name from households where id = ${data.householdId}`;
+      return { id: rad.id, hushall: hushall?.name ?? "hushållet" };
+    });
+
+    // Mailet köas efter att inbjudan finns. Går köandet fel visas länken ändå i
+    // gränssnittet, så uppsättningen aldrig fastnar på att mailet krånglar.
+    await köaInbjudan({
+      inviteId: skapad.id,
+      email: data.email,
+      namn: data.displayName,
+      hushall: skapad.hushall,
+      token,
+      giltigTill,
+      householdId: data.householdId,
+    });
+
+    return { token, expiresInDays: INVITE_DAYS };
+  });
+
+/**
+ * Skickar en ny inbjudan och gör den gamla oanvändbar.
+ *
+ * Att skicka om samma länk hade varit sämre: har den gamla legat i fel inkorg
+ * ska den sluta gälla, inte få en andra chans.
+ */
+export const resendInvite = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ inviteId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const user = await admin();
+    const { asUser } = await import("@/lib/db/client.server");
+    const { INVITE_DAYS, expiresIn, hashToken, newToken } = await import("@/lib/auth/tokens");
+    const { avbrytInbjudningsmail, köaInbjudan } = await import("@/lib/mail/invites.server");
+
+    const token = newToken();
+    const giltigTill = expiresIn(INVITE_DAYS);
+
+    const ny = await asUser(user.id, async (sql) => {
+      const [gammal] = await sql<
+        {
+          email: string;
+          display_name: string;
+          party_id: string;
+          household_id: string;
+          accepted_at: Date | null;
+        }[]
+      >`
+        select email, display_name, party_id, household_id, accepted_at
+          from invites where id = ${data.inviteId}
+      `;
+      if (!gammal) throw new Error("Inbjudan finns inte.");
+      if (gammal.accepted_at) throw new Error("Inbjudan är redan accepterad.");
+
+      await sql`
+        update invites set revoked_at = now()
+        where id = ${data.inviteId} and accepted_at is null and revoked_at is null
+      `;
+
+      const [rad] = await sql<{ id: string }[]>`
+        insert into invites
+          (email, token_hash, household_id, party_id, display_name, invited_by, expires_at)
+        values (${gammal.email}, ${hashToken(token)}, ${gammal.household_id}, ${gammal.party_id},
+                ${gammal.display_name}, ${user.id}, ${giltigTill})
+        returning id
+      `;
+      const [hushall] = await sql<{ name: string }[]>`
+        select name from households where id = ${gammal.household_id}`;
+      return {
+        id: rad.id,
+        email: gammal.email,
+        namn: gammal.display_name,
+        householdId: gammal.household_id,
+        hushall: hushall?.name ?? "hushållet",
+      };
+    });
+
+    await avbrytInbjudningsmail(data.inviteId);
+    await köaInbjudan({
+      inviteId: ny.id,
+      email: ny.email,
+      namn: ny.namn,
+      hushall: ny.hushall,
+      token,
+      giltigTill,
+      householdId: ny.householdId,
+      ersatter: true,
     });
 
     return { token, expiresInDays: INVITE_DAYS };
@@ -404,11 +530,16 @@ export const revokeInvite = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await admin();
     const { asUser } = await import("@/lib/db/client.server");
+    const { avbrytInbjudningsmail } = await import("@/lib/mail/invites.server");
+
     await asUser(user.id, async (sql) => {
       await sql`
         update invites set revoked_at = now()
         where id = ${data.inviteId} and accepted_at is null and revoked_at is null
       `;
     });
+    // Har mailet redan gått fram går det inte att ta tillbaka, men länken
+    // slutade gälla i samma stund och mailet är därmed verkningslöst.
+    await avbrytInbjudningsmail(data.inviteId);
     return { ok: true as const };
   });

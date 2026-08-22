@@ -20,6 +20,7 @@ import {
   createInvite,
   listHouseholdsAdmin,
   listInvites,
+  resendInvite,
   revokeInvite,
 } from "@/lib/admin.functions";
 import { isDemo } from "@/lib/demo";
@@ -70,6 +71,35 @@ function InvitesPage() {
     },
     onError: () => toast.error("Kunde inte återkalla inbjudan."),
   });
+
+  const resend = useMutation({
+    mutationFn: (inviteId: string) => resendInvite({ data: { inviteId } }),
+    onSuccess: (svar) => {
+      // Länken visas en enda gång, precis som vid en ny inbjudan – bara hashen
+      // sparas, så den går inte att hämta fram i efterhand.
+      setLink(`${window.location.origin}/inbjudan/${svar.token}`);
+      toast.success("Ny inbjudan skickad. Den gamla länken gäller inte längre.");
+      void queryClient.invalidateQueries({ queryKey: ["admin-invites"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Kunde inte skicka en ny inbjudan."),
+  });
+
+  /** Kort text om hur det gick för mailet, för den som undrar varför det dröjer. */
+  function mailText(status: string | null): string {
+    switch (status) {
+      case "sent":
+        return "mail levererat";
+      case "pending":
+      case "sending":
+        return "mail på väg";
+      case "failed":
+        return "mailet gick inte fram";
+      case "cancelled":
+        return "mailet avbrutet";
+      default:
+        return "inget mail köat";
+    }
+  }
 
   function statusOf(invite: {
     acceptedAt: string | null;
@@ -209,18 +239,30 @@ function InvitesPage() {
                         <p className="mt-0.5 text-sm text-muted-foreground">{invite.email}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {invite.household} · partsroll {invite.partyId} · giltig till{" "}
-                          {fmtDateTime(invite.expiresAt)}
+                          {fmtDateTime(invite.expiresAt)} · {mailText(invite.mailStatus)}
                         </p>
                       </div>
-                      {open && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={revoke.isPending}
-                          onClick={() => revoke.mutate(invite.id)}
-                        >
-                          Återkalla
-                        </Button>
+                      {!invite.acceptedAt && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={resend.isPending}
+                            onClick={() => resend.mutate(invite.id)}
+                          >
+                            Skicka igen
+                          </Button>
+                          {open && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={revoke.isPending}
+                              onClick={() => revoke.mutate(invite.id)}
+                            >
+                              Återkalla
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </li>
