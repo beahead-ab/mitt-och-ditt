@@ -9,6 +9,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { useHousehold } from "@/components/household-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyField } from "@/components/money-field";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,9 +60,11 @@ function SettlementPage() {
 
   const [basis, setBasis] = useState<ValueBasis>("extern-forsaljning");
   const [endDate, setEndDate] = useState(today);
-  const [endValue, setEndValue] = useState("");
-  const [endLoan, setEndLoan] = useState("");
-  const [saleCosts, setSaleCosts] = useState("0");
+  // Tomt eller ogiltigt är null. Ett slutvärde på noll kronor är ett
+  // riktigt påstående och får inte uppstå av att någon rensat ett fält.
+  const [endValue, setEndValue] = useState<number | null>(null);
+  const [endLoan, setEndLoan] = useState<number | null>(null);
+  const [saleCosts, setSaleCosts] = useState<number | null>(0);
   const [notes, setNotes] = useState("");
 
   const query = useQuery({
@@ -70,7 +73,10 @@ function SettlementPage() {
     enabled: !isDemo && Boolean(household?.id),
   });
 
-  const money = (value: string) => kr(Number(value.replace(/\s/g, "").replace(",", ".")) || 0);
+  // Null betyder "inget angivet" och kommer aldrig hit: knappen är avstängd
+  // tills fälten är ifyllda. Tidigare gjorde `|| 0` att ett ogiltigt värde tyst
+  // blev noll kronor - och en slutavräkning på noll är ett riktigt påstående.
+  const money = (kronor: number | null) => kr(kronor ?? 0);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["exit"] });
 
   const create = useMutation({
@@ -189,35 +195,15 @@ function SettlementPage() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="endValue">Slutvärde</Label>
-            <Input
-              id="endValue"
-              inputMode="decimal"
-              className="tabular"
-              value={endValue}
-              onChange={(event) => setEndValue(event.target.value)}
-              required
-            />
+            <MoneyField id="endValue" value={endValue} onChange={setEndValue} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="endLoan">Kvarvarande externa lån</Label>
-            <Input
-              id="endLoan"
-              inputMode="decimal"
-              className="tabular"
-              value={endLoan}
-              onChange={(event) => setEndLoan(event.target.value)}
-              required
-            />
+            <MoneyField id="endLoan" value={endLoan} onChange={setEndLoan} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="saleCosts">Faktiska direkta försäljningskostnader</Label>
-            <Input
-              id="saleCosts"
-              inputMode="decimal"
-              className="tabular"
-              value={saleCosts}
-              onChange={(event) => setSaleCosts(event.target.value)}
-            />
+            <MoneyField id="saleCosts" value={saleCosts} onChange={setSaleCosts} />
             <p className="text-xs text-muted-foreground">
               Vid utköp normalt 0. Hypotetiskt mäklararvode dras aldrig av.
             </p>
@@ -232,7 +218,10 @@ function SettlementPage() {
             />
           </div>
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={isDemo || create.isPending}>
+            <Button
+              type="submit"
+              disabled={isDemo || create.isPending || endValue === null || endLoan === null}
+            >
               {create.isPending ? "Beräknar …" : "Skapa och frys slutavräkningen"}
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">

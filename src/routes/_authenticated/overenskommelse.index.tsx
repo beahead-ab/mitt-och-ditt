@@ -63,8 +63,8 @@ function Current() {
           )}
           <Item label="Startdag" value={fmtDate(agreement.startDate)} låst />
           <Item label="Startvärde" value={fmtKr(toKronor(agreement.startValue))} låst />
-          <Item label="Bolån på startdagen" value={fmtKr(toKronor(agreement.initialLoan))} />
-          <Item label="Totalt antal andelsenheter" value={fmtEnheter(agreement.totalUnits)} />
+          <Item label="Bolån på startdagen" value={fmtKr(toKronor(agreement.initialLoan))} låst />
+          <Item label="Totalt antal andelsenheter" value={fmtEnheter(agreement.totalUnits)} låst />
         </dl>
         {/* En förklaring för sektionen, inte en per fält. Sex frågetecken på
             en sida läser man förbi; en synlig länk säger att det finns ett
@@ -81,7 +81,7 @@ function Current() {
             <div key={party} className="rounded-md border border-hairline p-3">
               <dt className="text-sm font-medium">{nameOf(party)}</dt>
               <dd className="mt-1.5 grid gap-1 text-sm">
-                <Line label="Startenheter" value={fmtEnheter(agreement.startUnits[party])} />
+                <Line label="Startenheter" value={fmtEnheter(agreement.startUnits[party])} låst />
                 <Line
                   label="Intern startandel"
                   value={fmtAndel(agreement.startUnits[party] / agreement.totalUnits)}
@@ -146,10 +146,15 @@ function Item({
   );
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+function Line({ label, value, låst }: { label: string; value: string; låst?: boolean }) {
   return (
-    <span className="flex justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
+    <span className="flex items-center justify-between gap-3">
+      <span className="flex items-center gap-1 text-muted-foreground">
+        {label}
+        {/* Låsningen står vid uppgiften den gäller, inte bara i en allmän text
+            längre ned - den som läser en rad ska se om raden går att ändra. */}
+        {låst && <Lock className="size-3" aria-label="Låst av avtalet" />}
+      </span>
       <span className="tabular">{value}</span>
     </span>
   );

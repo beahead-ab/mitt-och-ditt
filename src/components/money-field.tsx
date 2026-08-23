@@ -19,7 +19,9 @@ export function MoneyField({
   id,
   value,
   onChange,
-  placeholder = "0",
+  // Tom platshållare med flit. "0" ser ut som ett ifyllt värde, och hela
+  // poängen med fältet är att tomt inte är noll.
+  placeholder = "",
   className = "",
   suffix = "kr",
   disabled,

@@ -623,10 +623,18 @@ function SimulatorFor({
                 <YAxis
                   width={58}
                   // 0-100 % gör en förskjutning på 2,6 procentenheter till två
-                  // raka linjer. Skalan följer serien i stället, med marginal.
-                  domain={["dataMin", "dataMax"]}
-                  ticks={[0, 25, 50, 75, 100]}
-                  tickFormatter={(v: number) => `${v} %`}
+                  // raka linjer. Skalan följer serien i stället, med en tiondels
+                  // procentenhets marginal så kurvan inte klistras mot kanten.
+                  //
+                  // De fasta markeringarna på 0, 25, 50, 75 och 100 är borta:
+                  // med en domän kring 86-88 % hamnade varenda en utanför, och
+                  // axeln blev tom. Recharts väljer nu markeringar som ligger
+                  // inom det intervall som faktiskt visas.
+                  domain={[
+                    (dataMin: number) => Math.max(0, dataMin - 0.1),
+                    (dataMax: number) => Math.min(100, dataMax + 0.1),
+                  ]}
+                  tickFormatter={(v: number) => `${v.toFixed(2)} %`}
                   tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                   stroke="var(--hairline)"
                 />

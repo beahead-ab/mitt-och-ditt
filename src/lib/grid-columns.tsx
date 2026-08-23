@@ -99,22 +99,6 @@ export function transactionColumns(
       text: (tx) => tx.category,
     },
     {
-      key: "model",
-      grupp: "Sällan",
-      sällan: true,
-      header: "I modellen",
-      width: 7,
-      text: (tx) => (ruleFor(rules, tx.category, tx.paymentDate)?.included ? "Ja" : "Nej"),
-      render: (tx) => {
-        const included = ruleFor(rules, tx.category, tx.paymentDate)?.included;
-        return (
-          <span className={included ? undefined : "text-muted-foreground"}>
-            {included ? "Ja" : "Nej"}
-          </span>
-        );
-      },
-    },
-    {
       key: "description",
       grupp: "Posten",
       header: "Beskrivning",
@@ -204,6 +188,28 @@ export function transactionColumns(
       ),
     },
     {
+      key: "corrects",
+      grupp: "Läget",
+      header: "Korrigerar",
+      width: 7,
+      text: (tx) => tx.correctsId ?? "–",
+    },
+    {
+      key: "model",
+      grupp: "Läget",
+      header: "I modellen",
+      width: 7,
+      text: (tx) => (ruleFor(rules, tx.category, tx.paymentDate)?.included ? "Ja" : "Nej"),
+      render: (tx) => {
+        const included = ruleFor(rules, tx.category, tx.paymentDate)?.included;
+        return (
+          <span className={included ? undefined : "text-muted-foreground"}>
+            {included ? "Ja" : "Nej"}
+          </span>
+        );
+      },
+    },
+    {
       key: "key",
       grupp: "Sällan",
       sällan: true,
@@ -222,13 +228,6 @@ export function transactionColumns(
       numeric: true,
       text: (tx) => (tx.loanBalanceAfter == null ? "–" : kr(tx.loanBalanceAfter)),
       sortValue: (tx) => tx.loanBalanceAfter ?? null,
-    },
-    {
-      key: "corrects",
-      grupp: "Läget",
-      header: "Korrigerar",
-      width: 7,
-      text: (tx) => tx.correctsId ?? "–",
     },
     {
       key: "gross-total",

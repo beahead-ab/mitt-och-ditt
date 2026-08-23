@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/app-shell";
 import { useHousehold } from "@/components/household-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyField } from "@/components/money-field";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { today } from "@/lib/calculation";
@@ -27,7 +28,9 @@ function ValuationsPage() {
   const queryClient = useQueryClient();
   const [broker, setBroker] = useState("");
   const [valuedOn, setValuedOn] = useState(today);
-  const [amount, setAmount] = useState("");
+  // Tomt eller ogiltigt är null, aldrig noll: ett värderat belopp på noll
+  // kronor är ett riktigt påstående och får inte uppstå av ett skrivfel.
+  const [amount, setAmount] = useState<number | null>(null);
   const [joint, setJoint] = useState(false);
 
   const query = useQuery({
@@ -44,14 +47,14 @@ function ValuationsPage() {
           processId: query.data?.process?.id as string,
           broker,
           valuedOn,
-          amount: kr(Number(amount.replace(/\s/g, "").replace(",", ".")) || 0),
+          amount: kr(amount ?? 0),
           forParty: !joint,
         },
       }),
     onSuccess: () => {
       toast.success("Värderingen registrerad");
       setBroker("");
-      setAmount("");
+      setAmount(null);
       void queryClient.invalidateQueries({ queryKey: ["exit"] });
     },
     onError: (error: Error) => toast.error(error.message || "Kunde inte spara värderingen."),
@@ -162,22 +165,17 @@ function ValuationsPage() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="amount">Värderat belopp</Label>
-                <Input
-                  id="amount"
-                  inputMode="decimal"
-                  className="tabular"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="0"
-                  required
-                />
+                <MoneyField id="amount" value={amount} onChange={setAmount} />
               </div>
               <label className="flex items-center justify-between gap-3 self-end text-sm">
                 <span className="text-muted-foreground">Gemensam tredje värdering</span>
                 <Switch checked={joint} onCheckedChange={(checked) => setJoint(checked === true)} />
               </label>
               <div className="sm:col-span-2">
-                <Button type="submit" disabled={isDemo || add.isPending}>
+                <Button
+                  type="submit"
+                  disabled={isDemo || add.isPending || amount === null || amount <= 0}
+                >
                   Registrera värderingen
                 </Button>
               </div>
