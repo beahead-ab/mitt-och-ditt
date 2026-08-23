@@ -163,13 +163,40 @@ export function safeMessage(error: unknown): string {
  * MAIL_TRANSPORT, aldrig av misstag: står inget alls används SMTP, så en
  * glömd variabel gör tjänsten tyst-trasig i stället för att skicka på riktigt.
  */
+/**
+ * Transporterna som aldrig får användas i drift.
+ *
+ * Båda skriver mailets innehåll där det går att läsa - console i loggen,
+ * memory i processens minne. Mailen bär inbjudnings- och
+ * återställningslänkar, och en länk i en produktionslogg är en väg in i
+ * någon annans konto för var och en som kommer åt loggen.
+ */
+const BARA_FOR_UTVECKLING = ["console", "memory"];
+
 export function transportFromEnv(): MailTransport {
-  switch (process.env.MAIL_TRANSPORT) {
+  const val = process.env.MAIL_TRANSPORT?.trim() ?? "";
+
+  if (BARA_FOR_UTVECKLING.includes(val) && process.env.NODE_ENV === "production") {
+    throw new Error(
+      `MAIL_TRANSPORT=${val} är bara till för utveckling och kan inte användas i drift: ` +
+        "inbjudnings- och återställningslänkar skulle hamna i loggen. Lämna variabeln tom " +
+        "för SMTP.",
+    );
+  }
+
+  switch (val) {
     case "memory":
       return new MemoryTransport();
     case "console":
       return new ConsoleTransport();
-    default:
+    case "":
       return new SmtpTransport(smtpSettingsFromEnv());
+    default:
+      // Ett okänt värde är ett skrivfel. Att tyst falla tillbaka på SMTP hade
+      // dolt det tills någon undrar varför inställningen inte gör något.
+      throw new Error(
+        `MAIL_TRANSPORT="${val}" känns inte igen. Lämna tom för SMTP, eller använd ` +
+          `${BARA_FOR_UTVECKLING.join(" eller ")} under utveckling.`,
+      );
   }
 }

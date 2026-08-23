@@ -17,13 +17,30 @@
 import { closeConnections } from "../src/lib/db/client.server";
 import { dispatchOnce } from "../src/lib/mail/dispatch.server";
 import { purgeExpiredPayloads } from "../src/lib/mail/queue.server";
+import { tolkaIntervall } from "../src/lib/mail/intervall";
 import { safeMessage, transportFromEnv } from "../src/lib/mail/transport";
 
 const loop = process.argv.includes("--loop");
 const antal = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 25);
-const intervall = Number(process.env.MAIL_DISPATCH_INTERVAL_SECONDS ?? 30);
+const lage = tolkaIntervall(process.env.MAIL_DISPATCH_INTERVAL_SECONDS);
 
-const transport = transportFromEnv();
+if (lage.slag === "fel") {
+  console.error(lage.skal);
+  process.exit(1);
+}
+
+// Transportvalet kan vägra - console och memory är avstängda i drift. Ett
+// begripligt besked är bättre än en stackdump för den som ska rätta miljöfilen.
+let transport;
+try {
+  transport = transportFromEnv();
+} catch (error) {
+  // safeMessage döljer detaljer ur SMTP-fel, vilket är rätt för dem. Det här
+  // felet är vårt eget och beskriver miljöfilen; att dölja det hade lämnat
+  // den som ska rätta inställningen utan ledtråd.
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 
 async function svep(): Promise<void> {
   const resultat = await dispatchOnce(transport, antal);
@@ -41,8 +58,17 @@ async function svep(): Promise<void> {
 if (!loop) {
   await svep();
   await closeConnections();
+} else if (lage.slag === "avstangd") {
+  // 0 betyder avstängd, precis som .env.example säger. Tidigare tolkades det
+  // som noll sekunders väntan, vilket gav en loop utan paus mot databasen.
+  console.log(
+    "MAIL_DISPATCH_INTERVAL_SECONDS=0: den löpande avsändaren är avstängd. " +
+      "Enstaka svep går fortfarande att köra utan --loop.",
+  );
+  await closeConnections();
 } else {
-  console.log(`Avsändaren kör var ${intervall}:e sekund (transport: ${transport.name}).`);
+  if (lage.varning) console.warn(lage.varning);
+  console.log(`Avsändaren kör var ${lage.sekunder}:e sekund (transport: ${transport.name}).`);
 
   let stanna = false;
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
@@ -59,8 +85,9 @@ if (!loop) {
       // Ett trasigt svep får inte fälla avsändaren; nästa varv försöker igen.
       console.error(`svepet misslyckades: ${safeMessage(error)}`);
     }
-    // Vänta, men vakna direkt vid avslut.
-    for (let i = 0; i < intervall && !stanna; i += 1) {
+    // Vänta, men vakna direkt vid avslut. Intervallet är garanterat minst en
+    // sekund här, så snurran kan aldrig bli en loop utan paus.
+    for (let i = 0; i < lage.sekunder && !stanna; i += 1) {
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
