@@ -430,7 +430,20 @@ export type Tillagg = {
   /** Avtalsversionen som börjar gälla när båda bekräftat. */
   versionId: string | null;
   versionNumber: number | null;
+  /** Avtalsfälten tillägget ändrar, härlett på servern ur skillnaden. */
+  changedFields: string[];
+  /**
+   * Värdena före och efter, så båda parter kan kontrollera innan de bekräftar.
+   *
+   * Belopp och datum kommer som text ur databasen; startenheter och formella
+   * ägarandelar som objekt per part. Typen är uttrycklig eftersom svaret
+   * serialiseras över nätet - `unknown` går inte att skicka.
+   */
+  fore: Avtalsvardesvy | null;
+  efter: Avtalsvardesvy | null;
 };
+
+export type Avtalsvardesvy = Record<string, string | Record<string, number> | null>;
 
 export const listAddenda = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => z.object({ householdId: z.string().uuid() }).parse(input))
@@ -456,15 +469,44 @@ export const listAddenda = createServerFn({ method: "GET" })
           created_by_name: string;
           version_id: string | null;
           version_number: number | null;
+          changed_fields: string[] | null;
+          fore: Avtalsvardesvy | null;
+          efter: Avtalsvardesvy | null;
         }[]
       >`
         select t.id, t.title, t.signed_on, t.summary, t.applies_from, t.affected,
                t.document_sha256, t.attachment_id, t.created_at, t.effective_at,
                u.name as created_by_name,
-               v.id as version_id, v.version as version_number
+               v.id as version_id, v.version as version_number,
+               t.changed_fields,
+               -- Före och efter för de fält tillägget ändrar. Föregående
+               -- version är den med närmast lägre nummer i samma avtal; utan
+               -- den kan parterna inte se vad ett ja faktiskt betyder.
+               case when v.id is null then null else jsonb_build_object(
+                 'startDate', to_char(fore.start_date, 'YYYY-MM-DD'),
+                 'startValueOre', fore.start_value_ore::text,
+                 'initialLoanOre', fore.initial_loan_ore::text,
+                 'totalUnits', fore.total_units::text,
+                 'startUnits', fore.start_units,
+                 'formalOwnership', fore.formal_ownership
+               ) end as fore,
+               case when v.id is null then null else jsonb_build_object(
+                 'startDate', to_char(v.start_date, 'YYYY-MM-DD'),
+                 'startValueOre', v.start_value_ore::text,
+                 'initialLoanOre', v.initial_loan_ore::text,
+                 'totalUnits', v.total_units::text,
+                 'startUnits', v.start_units,
+                 'formalOwnership', v.formal_ownership
+               ) end as efter
           from agreement_addenda t
           join users u on u.id = t.created_by
           left join agreement_versions v on v.addendum_id = t.id
+          left join lateral (
+            select * from agreement_versions tidigare
+             where tidigare.agreement_id = t.agreement_id
+               and tidigare.version < v.version
+             order by tidigare.version desc limit 1
+          ) fore on true
          where t.agreement_id = current_agreement_id(${data.householdId})
          order by t.created_at desc
       `;
@@ -491,6 +533,9 @@ export const listAddenda = createServerFn({ method: "GET" })
         approvedBy: beslut.filter((b) => b.entity_id === rad.id).map((b) => b.party_id),
         versionId: rad.version_id,
         versionNumber: rad.version_number,
+        changedFields: rad.changed_fields ?? [],
+        fore: rad.fore,
+        efter: rad.efter,
       }));
     });
   });

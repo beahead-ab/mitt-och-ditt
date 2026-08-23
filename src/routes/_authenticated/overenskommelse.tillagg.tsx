@@ -2,11 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DemoNotice } from "@/components/demo-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, FileText, Lock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/app-shell";
-import { useHousehold } from "@/components/household-context";
+import { useHousehold, usePartyName } from "@/components/household-context";
+import { useHouseholdData } from "@/hooks/use-household-data";
+import {
+  TillaggsVarden,
+  tillServerform,
+  tomtUtkast,
+  type Tillaggsutkast,
+} from "@/components/tillaggsvarden";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +24,13 @@ import {
   confirmAddendum,
   createAddendum,
   listAddenda,
+  type Avtalsvardesvy,
   type Tillagg,
 } from "@/lib/agreement.functions";
 import { isDemo } from "@/lib/demo";
-import { fmtDate, fmtDateTime } from "@/lib/format";
+import { toKronor } from "@/lib/engine";
+import { fmtAndel, fmtDate, fmtDateTime, fmtEnheter, fmtKr } from "@/lib/format";
+import { FALTNAMN, type Avtalsfalt } from "@/lib/tillaggsavtal";
 
 export const Route = createFileRoute("/_authenticated/overenskommelse/tillagg")({
   head: () => ({ meta: [{ title: "Tilläggsavtal – Mitt & Ditt" }] }),
@@ -115,6 +125,16 @@ function TillaggPage() {
 }
 
 function NyttTillagg({ householdId }: { householdId: string }) {
+  const { agreement } = useHouseholdData();
+  const partyName = usePartyName();
+  const [utkast, setUtkast] = useState<Tillaggsutkast | null>(null);
+
+  // Utkastet nollställs mot det gällande avtalet så fort det finns. Utan det
+  // hade fälten visat tomma värden som "gällande nu".
+  useEffect(() => {
+    if (agreement && !utkast) setUtkast(tomtUtkast(agreement));
+  }, [agreement, utkast]);
+
   const klient = useQueryClient();
   const [titel, setTitel] = useState("");
   const [undertecknat, setUndertecknat] = useState("");
@@ -151,6 +171,9 @@ function NyttTillagg({ householdId }: { householdId: string }) {
           summary: sammanfattning,
           affected: berorda,
           attachmentId: id,
+          // Bara de fält som kryssats för följer med. Servern jämför dem med
+          // den faktiska skillnaden och avvisar om de inte stämmer.
+          ...(agreement && utkast ? tillServerform(utkast, agreement) : {}),
         },
       });
 
@@ -161,6 +184,7 @@ function NyttTillagg({ householdId }: { householdId: string }) {
       setSammanfattning("");
       setBerorda([]);
       setFil(null);
+      if (agreement) setUtkast(tomtUtkast(agreement));
       void klient.invalidateQueries();
     } catch (fel) {
       toast.error(fel instanceof Error ? fel.message : "Kunde inte registrera tilläggsavtalet.");
@@ -243,6 +267,19 @@ function NyttTillagg({ householdId }: { householdId: string }) {
           </div>
         </div>
 
+        {agreement && utkast && (
+          <div className="sm:col-span-2">
+            <Label className="mb-2 block">Nya värden i avtalet</Label>
+            <TillaggsVarden
+              agreement={agreement}
+              utkast={utkast}
+              setUtkast={setUtkast}
+              partyName={partyName}
+              gallerFran={gallerFran || undertecknat}
+            />
+          </div>
+        )}
+
         <div className="grid gap-1.5 sm:col-span-2">
           <Label htmlFor="fil">Den undertecknade handlingen (PDF)</Label>
           <Input
@@ -317,6 +354,47 @@ function TillaggKort({
         <p className="mt-2 text-sm text-muted-foreground">Berör: {tillagg.affected.join(", ")}</p>
       )}
 
+      {/* Före och efter för varje ändrad uppgift. Båda parter ska kunna
+          kontrollera vad ett ja betyder innan de bekräftar - inte efteråt. */}
+      {tillagg.changedFields.length > 0 && tillagg.fore && tillagg.efter && (
+        <div className="mt-3 overflow-x-auto rounded-md border border-hairline">
+          <table className="w-full min-w-[26rem] text-sm">
+            <thead>
+              <tr className="border-b border-hairline text-left">
+                <th className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-[oklch(0.35_0.02_60)]">
+                  Uppgift
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-[oklch(0.35_0.02_60)]">
+                  Gäller nu
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-[oklch(0.35_0.02_60)]">
+                  Efter tillägget
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {tillagg.changedFields.map((falt: string) => (
+                <tr key={falt} className="border-b border-hairline last:border-0">
+                  <td className="px-3 py-2">{FALTNAMN[falt as Avtalsfalt] ?? falt}</td>
+                  <td className="tabular px-3 py-2 text-right text-muted-foreground">
+                    {visaFalt(falt, tillagg.fore)}
+                  </td>
+                  <td className="tabular px-3 py-2 text-right font-medium">
+                    {visaFalt(falt, tillagg.efter)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {tillagg.appliesFrom && (
+            <p className="border-t border-hairline px-3 py-2 text-xs text-muted-foreground">
+              Gäller från {fmtDate(tillagg.appliesFrom)}. Beräkningen görs om från avtalets
+              startdag, som är oförändrad om tillägget inte uttryckligen ändrar den.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {tillagg.attachmentId && (
           <a
@@ -353,4 +431,28 @@ function TillaggKort({
       )}
     </li>
   );
+}
+
+/** Ett avtalsfält i läsbar form. Belopp i kronor, andelar i procent. */
+function visaFalt(falt: string, varden: Avtalsvardesvy | null): string {
+  if (!varden) return "–";
+  const v = varden[falt];
+  if (v === null || v === undefined) return "–";
+
+  if (falt === "startValueOre" || falt === "initialLoanOre") {
+    return fmtKr(toKronor(Number(v)));
+  }
+  if (falt === "totalUnits") return fmtEnheter(Number(v));
+  if (falt === "startUnits") {
+    return Object.entries(v as Record<string, number>)
+      .map(([part, enheter]) => `${part} ${fmtEnheter(enheter)}`)
+      .join(" · ");
+  }
+  if (falt === "formalOwnership") {
+    return Object.entries(v as Record<string, number>)
+      .map(([part, andel]) => `${part} ${fmtAndel(andel)}`)
+      .join(" · ");
+  }
+  if (falt === "startDate") return fmtDate(String(v));
+  return String(v);
 }
