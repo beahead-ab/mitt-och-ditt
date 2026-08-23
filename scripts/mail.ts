@@ -17,10 +17,14 @@
 import { closeConnections } from "../src/lib/db/client.server";
 import { dispatchOnce } from "../src/lib/mail/dispatch.server";
 import { purgeExpiredPayloads } from "../src/lib/mail/queue.server";
+import { stockholmsdatum } from "../src/lib/mail/bevakning";
 import { tolkaIntervall } from "../src/lib/mail/intervall";
+import { svepFrister, svepVeckosammanfattning } from "../src/lib/mail/svep.server";
 import { safeMessage, transportFromEnv } from "../src/lib/mail/transport";
 
 const loop = process.argv.includes("--loop");
+/** Kör bara de dagliga svepen och avsluta. Avsett för cron. */
+const baraSvep = process.argv.includes("--svep");
 const antal = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 25);
 const lage = tolkaIntervall(process.env.MAIL_DISPATCH_INTERVAL_SECONDS);
 
@@ -42,6 +46,25 @@ try {
   process.exit(1);
 }
 
+/**
+ * De dagliga svepen: frister som nått en påminnelsepunkt, och veckans
+ * sammanfattning.
+ *
+ * Körs en gång per svenskt dygn. Att köra oftare skadar inget - mailen är
+ * idempotenta per påminnelsepunkt och kalendervecka - men det är arbete i
+ * onödan. Flera instanser hindras av ett rådgivningslås.
+ */
+async function dagligaSvep(): Promise<void> {
+  const frister = await svepFrister();
+  const vecka = await svepVeckosammanfattning();
+  if (frister > 0 || vecka > 0) {
+    console.log(
+      `${new Date().toISOString()} dagliga svep: ${frister} fristpåminnelser, ` +
+        `${vecka} veckosammanfattningar`,
+    );
+  }
+}
+
 async function svep(): Promise<void> {
   const resultat = await dispatchOnce(transport, antal);
   const stadade = await purgeExpiredPayloads();
@@ -55,7 +78,10 @@ async function svep(): Promise<void> {
   }
 }
 
-if (!loop) {
+if (baraSvep) {
+  await dagligaSvep();
+  await closeConnections();
+} else if (!loop) {
   await svep();
   await closeConnections();
 } else if (lage.slag === "avstangd") {
@@ -78,9 +104,18 @@ if (!loop) {
     });
   }
 
+  // Svepen körs när det svenska dygnet byts, inte efter ett antal varv:
+  // intervallet kan ändras och dygnet är det som fristerna faktiskt räknas i.
+  let senasteSvepdag = stockholmsdatum();
+
   while (!stanna) {
     try {
       await svep();
+      const idag = stockholmsdatum();
+      if (idag !== senasteSvepdag) {
+        senasteSvepdag = idag;
+        await dagligaSvep();
+      }
     } catch (error) {
       // Ett trasigt svep får inte fälla avsändaren; nästa varv försöker igen.
       console.error(`svepet misslyckades: ${safeMessage(error)}`);

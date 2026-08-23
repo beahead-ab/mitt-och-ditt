@@ -16,6 +16,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "admin:losenord": "tsx scripts/set-password.ts",
     "mail:skicka": "tsx scripts/mail.ts",
+    "mail:svep": "tsx scripts/mail.ts --svep",
     "build:scripts": "esbuild scripts/seed.ts scripts/migrate.ts scripts/set-password.ts scripts/mail.ts --bundle --platform=node --target=node22 --format=esm --outdir=.output/scripts --out-extension:.js=.mjs"
   },
   "dependencies": {
