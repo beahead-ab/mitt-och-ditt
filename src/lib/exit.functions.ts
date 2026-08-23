@@ -53,7 +53,28 @@ export const startExitFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { startExit } = await import("@/lib/db/exit.server");
     const { userId } = await actor(data.householdId);
-    return startExit(userId, data.householdId, data.processDate, data.kind, data.note ?? null);
+    const process = await startExit(
+      userId,
+      data.householdId,
+      data.processDate,
+      data.kind,
+      data.note ?? null,
+    );
+
+    try {
+      const { notifieraProcessdag } = await import("@/lib/mail/handelser.server");
+      await notifieraProcessdag({
+        householdId: data.householdId,
+        // Nyckeln bär processens id, så en omladdning inte ger två besked.
+        processId: (process as { id?: string })?.id ?? data.processDate,
+        processDate: data.processDate,
+        slag: data.kind,
+      });
+    } catch {
+      // Utkorgen är inte en del av åtgärden; processen är redan registrerad.
+    }
+
+    return process;
   });
 
 export const notifyTakeoverFn = createServerFn({ method: "POST" })

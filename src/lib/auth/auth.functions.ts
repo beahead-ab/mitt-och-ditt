@@ -177,6 +177,29 @@ export const acceptInvite = createServerFn({ method: "POST" })
       return user.id;
     });
 
+    try {
+      const { notifieraMotpartAccepterade } = await import("@/lib/mail/handelser.server");
+      const { owner } = await import("@/lib/db/client.server");
+      const [inbjudan] = await owner()<
+        { household_id: string; invited_by: string | null; namn: string }[]
+      >`
+        select i.household_id, i.invited_by, m.display_name as namn
+          from invites i
+          join household_members m
+            on m.household_id = i.household_id and m.user_id = ${userId}
+         where i.accepted_by = ${userId}
+         order by i.accepted_at desc limit 1`;
+      if (inbjudan?.invited_by) {
+        await notifieraMotpartAccepterade({
+          householdId: inbjudan.household_id,
+          inbjudarensUserId: inbjudan.invited_by,
+          motpartensNamn: inbjudan.namn,
+        });
+      }
+    } catch {
+      // Kontot är redan skapat; ett uteblivet besked får inte fälla det.
+    }
+
     await startSession(userId, getRequestHeader("user-agent") ?? undefined);
     return { ok: true as const };
   });

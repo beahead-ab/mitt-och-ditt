@@ -174,6 +174,23 @@ export async function registreraTillagg(
                 } as never)})
       `;
 
+    try {
+      const { notifieraDokumentVantar } = await import("@/lib/mail/handelser.server");
+      const [minRoll] = await sql<{ party_id: string }[]>`
+        select party_id from household_members
+         where household_id = ${data.householdId} and user_id = ${userId}`;
+      if (minRoll) {
+        await notifieraDokumentVantar({
+          householdId: data.householdId,
+          slag: "tillagg",
+          entityId: tillagg.id,
+          skapadAvPartyId: minRoll.party_id,
+        });
+      }
+    } catch {
+      // Utkorgen är inte en del av transaktionen; tillägget är redan skrivet.
+    }
+
     return { addendumId: tillagg.id, versionId: version.id, version: version.version };
   });
 }

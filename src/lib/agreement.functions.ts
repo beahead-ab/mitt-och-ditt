@@ -253,6 +253,24 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
         )
       `;
 
+      // Beskedet får aldrig fälla registreringen; utkastet är redan skrivet.
+      try {
+        const { notifieraDokumentVantar } = await import("@/lib/mail/handelser.server");
+        // Beskedet ska gå till den andra parten, så min egen roll måste slås
+        // upp - inte gissas till den första i listan.
+        const [minRoll] = await sql<{ party_id: string }[]>`
+          select party_id from household_members
+           where household_id = ${data.householdId} and user_id = ${user.id}`;
+        await notifieraDokumentVantar({
+          householdId: data.householdId,
+          slag: "avtalsversion",
+          entityId: draft.id,
+          skapadAvPartyId: minRoll?.party_id ?? roles[0],
+        });
+      } catch {
+        // Utkorgen är inte en del av transaktionen.
+      }
+
       return { id: draft.id, version, checksum };
     });
   });

@@ -80,6 +80,22 @@ const reference = z.object({
   reference: z.string().min(1).max(20),
 });
 
+/**
+ * Köar ett besked utan att kunna fälla åtgärden.
+ *
+ * Posten är redan skriven när beskedet köas. Att ett mail inte gick att lägga
+ * i kön - kön full, databasen slö - får inte göra att godkännandet ser ut att
+ * ha misslyckats för den som klickade.
+ */
+async function beskedUtanAttFalla(arbete: () => Promise<void>): Promise<void> {
+  try {
+    await arbete();
+  } catch {
+    // Utkorgen är inte en del av transaktionen. Den som vill veta om ett mail
+    // fastnat ser det under Systemadmin -> Mailstatus.
+  }
+}
+
 export const decideTransaction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     reference
@@ -96,8 +112,45 @@ export const decideTransaction = createServerFn({ method: "POST" })
       throw new Error("En invändning kräver en motivering.");
     }
     await decide(userId, partyId, data.householdId, data.reference, data.decision, data.note);
+
+    await beskedUtanAttFalla(async () => {
+      const { notifieraPostBeslutad } = await import("@/lib/mail/handelser.server");
+      const version = await senasteVersion(data.householdId, data.reference);
+      await notifieraPostBeslutad({
+        householdId: data.householdId,
+        reference: data.reference,
+        version,
+        beslut: data.decision === "approved" ? "godkand" : "invand",
+        beslutadAvPartyId: partyId,
+      });
+    });
+
     return { ok: true as const };
   });
+
+/**
+ * Postens senaste versionsnummer.
+ *
+ * Ingår i idempotensnyckeln: en korrigerad post är en ny händelse och ska ge
+ * ett nytt besked, men samma version aldrig två gånger.
+ */
+async function senasteVersionMedSlag(
+  householdId: string,
+  reference: string,
+): Promise<{ version: number; kategori: string }> {
+  const { owner } = await import("@/lib/db/client.server");
+  const [rad] = await owner()<{ version: number; category: string }[]>`
+    select v.version, v.category
+      from transaction_versions v
+      join transactions t on t.id = v.transaction_id
+     where t.household_id = ${householdId} and t.reference = ${reference}
+     order by v.version desc limit 1`;
+  return { version: Number(rad?.version ?? 1), kategori: rad?.category ?? "posten" };
+}
+
+async function senasteVersion(householdId: string, reference: string): Promise<number> {
+  return (await senasteVersionMedSlag(householdId, reference)).version;
+}
 
 export const withdrawTransaction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => reference.parse(input))
@@ -114,6 +167,19 @@ export const submitTransaction = createServerFn({ method: "POST" })
     const { submitDraft } = await import("@/lib/db/transactions.server");
     const { userId, partyId } = await actor(data.householdId);
     await submitDraft(userId, partyId, data.householdId, data.reference);
+
+    await beskedUtanAttFalla(async () => {
+      const { notifieraPostVantar } = await import("@/lib/mail/handelser.server");
+      const { version, kategori } = await senasteVersionMedSlag(data.householdId, data.reference);
+      await notifieraPostVantar({
+        householdId: data.householdId,
+        reference: data.reference,
+        version,
+        kostnadsslag: kategori,
+        registeradAvPartyId: partyId,
+      });
+    });
+
     return { ok: true as const };
   });
 

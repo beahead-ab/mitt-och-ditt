@@ -188,6 +188,13 @@ export const setUserDisabled = createServerFn({ method: "POST" })
         update users set disabled_at = ${data.disabled ? sql`now()` : null}
         where id = ${data.userId}
       `;
+
+      try {
+        const { notifieraKontostatus } = await import("@/lib/mail/handelser.server");
+        await notifieraKontostatus({ userId: data.userId, avstangt: data.disabled });
+      } catch {
+        // Åtgärden är redan gjord; beskedet får inte fälla den.
+      }
       // Ett avstängt konto ska inte kunna fortsätta på en öppen session.
       if (data.disabled) await sql`delete from sessions where user_id = ${data.userId}`;
     });
