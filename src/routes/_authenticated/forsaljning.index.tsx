@@ -36,7 +36,10 @@ function ExitProcessPage() {
   const myPartyId = useMyParty();
   const queryClient = useQueryClient();
   const [processDate, setProcessDate] = useState(today);
-  const [kind, setKind] = useState<"extern_forsaljning" | "utkop" | "annan">("annan");
+  // Dödsfall saknades här medan servern och databasen redan godtog det. Följden
+  // var att fristerna i avtalets punkt 22 aldrig gick att nå: komponenten som
+  // visar dem villkoras på just den processtypen.
+  const [kind, setKind] = useState<"extern_forsaljning" | "utkop" | "dodsfall" | "annan">("annan");
 
   const query = useQuery({
     queryKey: ["exit", household?.id],
@@ -125,8 +128,16 @@ function ExitProcessPage() {
                   <SelectItem value="annan">Inte bestämt än</SelectItem>
                   <SelectItem value="utkop">Utköp</SelectItem>
                   <SelectItem value="extern_forsaljning">Extern försäljning</SelectItem>
+                  <SelectItem value="dodsfall">Dödsfall</SelectItem>
                 </SelectContent>
               </Select>
+              {kind === "dodsfall" && (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Två frister börjar löpa, var och en när sitt eget underlag finns: trettio dagar
+                  från bouppteckningsförrättningen att meddela övertagande, och fyra månader från
+                  fastställt värde att ordna finansieringen. Dagarna registreras i nästa steg.
+                </p>
+              )}
             </div>
           </div>
           <Button
