@@ -39,7 +39,7 @@ const KONTO: NavItem[] = [{ to: "/konto", label: "Mitt konto" }];
 const ADMIN: NavItem[] = [{ to: "/system/anvandare", label: "Systemadmin" }];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { household, isAdmin } = useHousehold();
+  const { household, households, isAdmin, valjHushall, visaValjare } = useHousehold();
   const navigate = useNavigate();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -144,6 +144,35 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             )}
 
+            {/* Hushållsväljaren. Med ett enda hushåll visas ingenting alls -
+                ett val mellan en sak är inget val, bara brus. */}
+            {visaValjare && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="hushallsvaljare"
+                    className="hidden h-8 max-w-[12rem] gap-1 px-2.5 text-[13px] font-normal md:inline-flex"
+                  >
+                    <span className="truncate">{household?.name ?? "Välj hushåll"}</span>
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {households.map((h) => (
+                    <DropdownMenuItem
+                      key={h.id}
+                      onSelect={() => valjHushall(h.id)}
+                      className={h.id === household?.id ? "font-medium" : undefined}
+                    >
+                      {h.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -209,6 +238,28 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 ))}
               </div>
+              {visaValjare && (
+                <div className="mt-4 border-t border-hairline pt-3">
+                  <p className="eyebrow mb-2">Hushåll</p>
+                  <div className="grid gap-0.5">
+                    {households.map((h) => (
+                      <button
+                        key={h.id}
+                        onClick={() => {
+                          valjHushall(h.id);
+                          setOpen(false);
+                        }}
+                        className={`rounded-md px-3 py-2.5 text-left text-sm hover:bg-secondary ${
+                          h.id === household?.id ? "bg-secondary font-medium" : ""
+                        }`}
+                      >
+                        {h.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={signOut}
                 className="mt-4 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-secondary"

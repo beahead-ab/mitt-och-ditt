@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { lasSparatVal, sparaVal, valjAktivt } from "@/lib/aktivt-hushall";
 import { DEMO_HOUSEHOLD, isDemo } from "@/lib/demo";
 import { listHouseholds } from "@/lib/household.functions";
 
@@ -16,6 +17,10 @@ export type Household = {
 type HouseholdContextValue = {
   household: Household | null;
   households: Household[];
+  /** Byter aktivt hushåll. Valet överlever sidbyte och omladdning. */
+  valjHushall: (id: string) => void;
+  /** Väljaren visas bara när det finns mer än ett hushåll att välja mellan. */
+  visaValjare: boolean;
   isAdmin: boolean;
   /** Bekräftad adress krävs för att skapa ett hushåll eller bli part i ett. */
   emailVerified: boolean;
@@ -25,6 +30,8 @@ type HouseholdContextValue = {
 const HouseholdContext = createContext<HouseholdContextValue>({
   household: null,
   households: [],
+  valjHushall: () => {},
+  visaValjare: false,
   isAdmin: false,
   emailVerified: false,
   isLoading: false,
@@ -64,9 +71,33 @@ export function HouseholdProvider({
   });
 
   const households = isDemo ? [DEMO] : (query.data ?? []);
+
+  // Det sparade valet läses en gång och hålls i tillstånd, så att ett byte
+  // slår igenom direkt i alla frågor - cache-nycklarna innehåller hushållets
+  // id och byts därmed automatiskt.
+  const [sparatId, setSparatId] = useState<string | null>(() => lasSparatVal());
+  const val = valjAktivt(households, sparatId);
+
+  // Ett hushåll som tagits bort eller inte längre går att nå får aldrig ligga
+  // kvar som aktivt. Utan den här raden visas ett tomt läge som ser ut som ett
+  // fel i tjänsten.
+  useEffect(() => {
+    if (val.rensaSparat) {
+      sparaVal(null);
+      setSparatId(null);
+    }
+  }, [val.rensaSparat]);
+
+  const valjHushall = useCallback((id: string) => {
+    sparaVal(id);
+    setSparatId(id);
+  }, []);
+
   const value: HouseholdContextValue = {
     households,
-    household: households[0] ?? null,
+    household: val.aktivt,
+    valjHushall,
+    visaValjare: val.visaValjare,
     isAdmin: isDemo ? true : isAdmin,
     emailVerified: isDemo ? true : emailVerified,
     isLoading: !isDemo && query.isLoading,
