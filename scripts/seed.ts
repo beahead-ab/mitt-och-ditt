@@ -98,7 +98,11 @@ async function main() {
   if (links.length === 0) {
     console.log("Hushållet finns redan och alla valda parter har konto eller en öppen inbjudan.");
   } else {
-    console.log("\nInbjudningslänkar – giltiga i sju dagar, visas bara denna gång:\n");
+    // Länkarna skrivs med flit: det är enda vägen till det första kontot, och
+    // databasen sparar bara hashen. Utskriften går till den som kör skriptet,
+    // aldrig till tjänstens logg - men den ska behandlas som ett lösenord.
+    console.log("\nInbjudningslänkar – giltiga i sju dagar, visas bara denna gång.");
+    console.log("Behandla dem som lösenord: klistra inte in dem i chattar eller ärenden.\n");
     for (const link of links) {
       console.log(`  ${link.name} <${link.email}>`);
       console.log(`  ${link.url}\n`);

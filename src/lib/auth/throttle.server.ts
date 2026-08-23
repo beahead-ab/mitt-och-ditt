@@ -89,9 +89,21 @@ export async function räknaFörsök(
             else auth_throttle.window_started_at
           end,
           blocked_until = case
+            -- En pågående spärr flyttas aldrig fram. Tidigare sattes
+            -- blocked_until om vid varje nytt försök, så fortsatta försök
+            -- förlängde spärren i all oändlighet. Det drabbar inte den som
+            -- gissar - den kan vänta - utan den riktiga användaren, vars konto
+            -- går att hålla utelåst av vem som helst som fortsätter knacka.
+            when auth_throttle.blocked_until is not null
+             and auth_throttle.blocked_until > now()
+            then auth_throttle.blocked_until
             when auth_throttle.window_started_at >= now() - ${`${regel.fönsterMinuter} minutes`}::interval
              and auth_throttle.attempts + 1 >= ${regel.tak}
             then now() + ${`${regel.spärrMinuter} minutes`}::interval
+            -- Fönstret har löpt ut: en gammal spärr som redan passerat ska inte
+            -- ligga kvar och förvirra.
+            when auth_throttle.window_started_at < now() - ${`${regel.fönsterMinuter} minutes`}::interval
+            then null
             else auth_throttle.blocked_until
           end
     returning blocked_until
@@ -139,6 +151,7 @@ export type Säkerhetshändelse =
   | "login.avstängt_konto"
   | "reset.begärd"
   | "reset.spärrad"
+  | "invite.spärrad"
   | "register.skapad"
   | "register.befintlig_adress"
   | "register.spärrad"

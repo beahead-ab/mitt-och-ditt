@@ -2,6 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 
+/** Klientens IP bakom proxyn. Används för försöksspärrarna. */
+function klientIp(): string | undefined {
+  return getRequestHeader("x-forwarded-for") ?? getRequestHeader("x-real-ip") ?? undefined;
+}
+
 /**
  * Inloggning, utloggning och inbjudningar. Tjänsten är endast för inbjudna –
  * det finns ingen öppen registrering någonstans i flödet.
@@ -38,6 +43,17 @@ export const inviteDetails = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { owner } = await import("@/lib/db/client.server");
     const { hashToken, isExpired } = await import("./tokens");
+    const { loggaHändelse, räknaFörsök } = await import("./throttle.server");
+
+    // En inbjudningstoken är en väg in i ett hushåll. Utan spärr går den att
+    // gissa hur många gånger som helst. Kategorin fanns men användes inte.
+    const spärr = await räknaFörsök("invite", { ip: klientIp() });
+    if (!spärr.tillåtet) {
+      await loggaHändelse("invite.spärrad", { ip: klientIp() });
+      // Samma svar som en ogiltig länk: en spärr får inte avslöja att någon
+      // gissat rätt.
+      return { valid: false as const };
+    }
 
     const rows = await owner()<
       {
@@ -93,6 +109,16 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
+    const { loggaHändelse: logga, räknaFörsök: räkna } = await import("./throttle.server");
+
+    // Samma spärr som vid uppslaget. Att acceptera är det som faktiskt skapar
+    // kontot, så här är gissning som mest värd att stoppa.
+    const spärr = await räkna("invite", { ip: klientIp() });
+    if (!spärr.tillåtet) {
+      await logga("invite.spärrad", { ip: klientIp() });
+      throw new Error("Inbjudan är inte längre giltig.");
+    }
+
     const { owner } = await import("@/lib/db/client.server");
     const { hashPassword } = await import("./password");
     const { hashToken, isExpired } = await import("./tokens");

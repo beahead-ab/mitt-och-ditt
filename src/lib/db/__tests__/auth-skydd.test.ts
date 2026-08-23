@@ -345,3 +345,73 @@ describeDb("Spärrtabellen städas", () => {
     expect(kvar.map((r) => r.bucket)).toEqual(["login:ip:aktiv"]);
   });
 });
+
+describeDb("En pågående spärr flyttas inte fram", () => {
+  /**
+   * Tidigare sattes blocked_until om vid varje nytt försök. Fortsatta försök
+   * förlängde alltså spärren i all oändlighet - vilket inte drabbar den som
+   * gissar, för den kan vänta, utan den riktiga användaren. Vem som helst
+   * kunde hålla ett konto utelåst genom att fortsätta knacka.
+   */
+  const EPOST = "spärrprov@x.se";
+
+  async function spärraFast() {
+    await owner`delete from auth_throttle`;
+    // Tio försök är taket för inloggning.
+    for (let i = 0; i < 10; i += 1) {
+      await throttle.räknaFörsök("login", { epost: EPOST });
+    }
+  }
+
+  it("blir spärrad vid taket", async () => {
+    await spärraFast();
+    const svar = await throttle.räknaFörsök("login", { epost: EPOST });
+    expect(svar.tillåtet).toBe(false);
+    expect(svar.spärradTill).toBeInstanceOf(Date);
+  });
+
+  it("sluttiden står still trots fortsatta försök", async () => {
+    await spärraFast();
+    const första = await throttle.räknaFörsök("login", { epost: EPOST });
+    expect(första.tillåtet).toBe(false);
+    const start = första.spärradTill!.getTime();
+
+    // Femton försök till. Med det gamla beteendet hade sluttiden flyttats
+    // fram varje gång.
+    for (let i = 0; i < 15; i += 1) {
+      await throttle.räknaFörsök("login", { epost: EPOST });
+    }
+
+    const sista = await throttle.räknaFörsök("login", { epost: EPOST });
+    expect(sista.tillåtet).toBe(false);
+    expect(sista.spärradTill!.getTime()).toBe(start);
+  });
+
+  it("släpper när spärren löpt ut, utan att fortsatta försök förlängt den", async () => {
+    await spärraFast();
+    await throttle.räknaFörsök("login", { epost: EPOST });
+    for (let i = 0; i < 5; i += 1) await throttle.räknaFörsök("login", { epost: EPOST });
+
+    // Flytta spärren och fönstret bakåt i tiden, som om de löpt ut.
+    await owner`update auth_throttle
+      set blocked_until = now() - interval '1 minute',
+          window_started_at = now() - interval '2 hours'`;
+
+    const svar = await throttle.räknaFörsök("login", { epost: EPOST });
+    expect(svar.tillåtet).toBe(true);
+  });
+});
+
+describeDb("Inbjudningar spärras", () => {
+  it("kategorin invite räknar och spärrar", async () => {
+    await owner`delete from auth_throttle`;
+    // Taket för inbjudningar är lägre än för inloggning: gissning av en token
+    // ska inte löna sig.
+    let spärrad = false;
+    for (let i = 0; i < 40 && !spärrad; i += 1) {
+      const svar = await throttle.räknaFörsök("invite", { ip: "203.0.113.7" });
+      spärrad = !svar.tillåtet;
+    }
+    expect(spärrad).toBe(true);
+  });
+});
