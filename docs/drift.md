@@ -572,12 +572,66 @@ Någon signeringsnyckel för sessioner behövs inte. Sessionstoken slumpas per
 inloggning och lagras bara som hash i databasen, så det finns ingen hemlighet
 att läcka och inget att rotera. Samma sak gäller inbjudningslänkarna.
 
-## 8. Vad som återstår
+## 8. Hushållsväljaren
+
+Ett konto kan höra till mer än ett hushåll - någon äger en bostad med sin
+partner och en annan med ett syskon. Väljaren står till vänster om kontomenyn
+och visas **bara när det finns mer än ett hushåll**. Med ett enda visas
+ingenting: ett val mellan en sak är brus.
+
+Valet sparas i webbläsaren och överlever sidbyte och omladdning. Ett hushåll
+som tagits bort, eller som användaren inte längre är part i, faller
+automatiskt bort som aktivt val - annars hade tjänsten visat ett tomt läge som
+ser ut som ett fel.
+
+Alla frågor byter av sig själva: hushållets id ingår i varje cache-nyckel. En
+administratör som arbetar i flera hushåll får därför aldrig uppgifter från ett
+hushåll medan ett annat är valt. Radnivåsäkerheten är det andra skyddslagret -
+ett hushåll man inte är part i går inte att läsa oavsett vad klienten begär.
+
+## 9. Tilläggsavtal och beräkningsmodellen
+
+Ett tilläggsavtal registreras med sin undertecknade handling, och tjänsten
+skapar en ny avtalsversion som börjar gälla först när **båda** parter
+bekräftat samma handling.
+
+Det som är lätt att missförstå: **tilläggets giltighetsdag är inte avtalets
+startdag.** Startdagen är bostadsköpets tillträdesdag och origo för hela den
+linjära värdeberäkningen. Den ändras bara om tillägget uttryckligen anger en
+ny - normalt bara vid en rättelse av tillträdesdagen.
+
+De uppgifter ett tillägg kan ändra är startdag, startvärde, ursprungligt lån,
+totalt antal andelsenheter, startenheter per part och formella ägarandelar.
+Den som registrerar kryssar för vilka som ändras, och servern jämför med den
+faktiska skillnaden: ett tillägg kan varken lova en ändring som uteblir eller
+smyga in en som ingen tagit ställning till. Båda parter ser en före/efter-
+tabell innan de bekräftar.
+
+När tillägget börjat gälla räknas hela historiken om från avtalets startdag.
+Historiska poster påverkas inte av att ett tillägg registrerats - bara av det
+tillägget faktiskt ändrat.
+
+## 10. Vad som återstår
 
 Hela byggordningen är genomförd: registrering, godkännanden, korrigeringar och
 makuleringar, bilagor, exporter, försäljning och utköp samt administration.
 
-Medvetet uppskjutet till en senare version, enligt lösningsförslaget: flödet vid
-dödsfall och arv, notifieringar och e-post, en komplett revisionszip,
-kompensation för nyttjande efter processdagen, dröjsmålsränta på regresskrav och
-sparade scenarier i simulatorn.
+Sedan dess är även följande byggt och prövat, och ska **inte** längre räknas
+som framtida arbete: flödet vid dödsfall med avtalets frister, mailmotorn med
+utkorg och mallar, den kompletta revisionszipen, dröjsmålsränta på
+regressfordran enligt 6 § räntelagen, sparade scenarier i simulatorn, öppen
+registrering med bekräftad e-postadress, och hushållsväljaren.
+
+Kvar att bygga:
+
+- **Veckosammanfattningen.** Mallen finns men skickas inte.
+- **Bevakning av frister.** Funktionen som skickar påminnelsen finns och är
+  prövad; det som saknas är det som kör den regelbundet, till exempel ett
+  svep i mailtjänsten.
+- **Kompensation för nyttjande efter processdagen.** Avtalets punkt 21.2 säger
+  att beloppet är skäligt och bestäms med hänsyn till marknadsmässig
+  nyttjandenivå - det är inget tjänsten kan räkna fram. Dagen och ett
+  överenskommet belopp ska registreras, inte beräknas.
+- **Boendekedjans gränssnitt.** Schemat bär flera boenden per hushåll och
+  frågorna vet vilket som gäller, men det finns ingen yta för att avsluta ett
+  boende och starta nästa.
