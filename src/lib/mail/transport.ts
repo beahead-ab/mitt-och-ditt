@@ -176,6 +176,16 @@ const BARA_FOR_UTVECKLING = ["console", "memory"];
 export function transportFromEnv(): MailTransport {
   const val = process.env.MAIL_TRANSPORT?.trim() ?? "";
 
+  // Samma skäl som nedan: en okrypterad anslutning bär inbjudnings- och
+  // återställningslänkar i klartext över nätet. Undantaget finns för att kunna
+  // pröva mot en enkel mottagare lokalt, och hör inte hemma i drift.
+  if (process.env.MAIL_ALLOW_INSECURE === "true" && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "MAIL_ALLOW_INSECURE=true kan inte användas i drift: mailen bär inbjudnings- och " +
+        "återställningslänkar, och utan TLS går de i klartext över nätet.",
+    );
+  }
+
   if (BARA_FOR_UTVECKLING.includes(val) && process.env.NODE_ENV === "production") {
     throw new Error(
       `MAIL_TRANSPORT=${val} är bara till för utveckling och kan inte användas i drift: ` +

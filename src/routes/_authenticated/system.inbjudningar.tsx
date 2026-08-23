@@ -6,6 +6,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { useHousehold } from "@/components/household-context";
+import { KraverAdmin } from "@/components/kraver-admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/_authenticated/system/inbjudningar")({
 });
 
 function InvitesPage() {
+  const { isAdmin } = useHousehold();
   const queryClient = useQueryClient();
   const [householdId, setHouseholdId] = useState("");
   const [email, setEmail] = useState("");
@@ -115,6 +118,9 @@ function InvitesPage() {
       return { label: "Utgången", variant: "outline" as const };
     return { label: "Öppen", variant: "secondary" as const };
   }
+
+  // Efter sidans hooks, annars bryts hook-reglerna.
+  if (!isAdmin) return <KraverAdmin titel="Inbjudningar" />;
 
   return (
     <>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { useHousehold } from "@/components/household-context";
+import { KraverAdmin } from "@/components/kraver-admin";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/_authenticated/system/hushall")({
 });
 
 function HouseholdsPage() {
+  const { isAdmin } = useHousehold();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const query = useQuery({
@@ -50,6 +53,9 @@ function HouseholdsPage() {
     },
     onError: (error: Error) => toast.error(error.message || "Kunde inte skapa hushållet."),
   });
+
+  // Efter sidans hooks, annars bryts hook-reglerna.
+  if (!isAdmin) return <KraverAdmin titel="Hushåll" />;
 
   return (
     <>

@@ -5,6 +5,8 @@ import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { useHousehold } from "@/components/household-context";
+import { KraverAdmin } from "@/components/kraver-admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isDemo } from "@/lib/demo";
@@ -41,6 +43,7 @@ const STATUSTEXT: Record<MailRad["status"], { text: string; ton: "vantar" | "kla
 };
 
 function MailPage() {
+  const { isAdmin } = useHousehold();
   const klient = useQueryClient();
 
   const query = useQuery({
@@ -65,6 +68,9 @@ function MailPage() {
   });
 
   const rader = query.data ?? [];
+
+  // Efter sidans hooks, annars bryts hook-reglerna.
+  if (!isAdmin) return <KraverAdmin titel="Mailstatus" />;
 
   return (
     <>

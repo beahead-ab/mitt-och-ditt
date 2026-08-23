@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { useHousehold } from "@/components/household-context";
+import { KraverAdmin } from "@/components/kraver-admin";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/system/anvandare")({
 });
 
 function UsersPage() {
+  const { isAdmin } = useHousehold();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -68,6 +71,9 @@ function UsersPage() {
     },
     onError: (error: Error) => toast.error(error.message || "Kunde inte ta bort kontot."),
   });
+
+  // Efter sidans hooks, annars bryts hook-reglerna.
+  if (!isAdmin) return <KraverAdmin titel="Användare" />;
 
   return (
     <>

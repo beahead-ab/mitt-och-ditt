@@ -1,6 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 
-type Tab = { to: string; label: string };
+import { useHousehold } from "@/components/household-context";
+
+/**
+ * `endastAdmin` märker flikar som hör till hela tjänsten och inte till
+ * hushållet. Huvudmenyn gattar redan på `isAdmin`, men flikraden gjorde det
+ * inte: en vanlig part som öppnade sitt eget revisionsunderlag - som ligger
+ * under samma prefix - fick en rad med länkar till användarregistret,
+ * inbjudningarna och mailkön. Sidorna själva visade ingenting, men menyn
+ * skyltade med en förvaltning paret inte har med att göra.
+ */
+type Tab = { to: string; label: string; endastAdmin?: boolean };
 type Section = { match: string; tabs: Tab[] };
 
 /** Sektionernas undersidor. Huvudmenyn visar bara de sju sektionerna. */
@@ -36,15 +46,27 @@ export const SECTIONS: Section[] = [
   {
     match: "/system",
     tabs: [
-      { to: "/system/anvandare", label: "Användare" },
-      { to: "/system/hushall", label: "Hushåll" },
-      { to: "/system/inbjudningar", label: "Inbjudningar" },
-      { to: "/system/rantor", label: "Referensränta" },
-      { to: "/system/mail", label: "Mailstatus" },
+      { to: "/system/anvandare", label: "Användare", endastAdmin: true },
+      { to: "/system/hushall", label: "Hushåll", endastAdmin: true },
+      { to: "/system/inbjudningar", label: "Inbjudningar", endastAdmin: true },
+      { to: "/system/rantor", label: "Referensränta", endastAdmin: true },
+      { to: "/system/mail", label: "Mailstatus", endastAdmin: true },
+      // Revisionsunderlaget är hushållets egen logg, inte förvaltning.
       { to: "/system/revision", label: "Revisionsunderlag" },
     ],
   },
 ];
+
+/**
+ * Vilka flikar en viss användare ska se i en sektion.
+ *
+ * Bruten ur komponenten för att kunna prövas: gränsen mellan hushållets egna
+ * sidor och tjänstens förvaltning är en behörighetsregel, inte en detalj i
+ * utseendet.
+ */
+export function synligaFlikar(section: Section, isAdmin: boolean): Tab[] {
+  return section.tabs.filter((t) => !t.endastAdmin || isAdmin);
+}
 
 export function sectionFor(pathname: string) {
   return SECTIONS.find((s) => pathname === s.match || pathname.startsWith(`${s.match}/`)) ?? null;
@@ -53,8 +75,12 @@ export function sectionFor(pathname: string) {
 /** Fast, horisontellt scrollbar flikrad för aktuell sektion. */
 export function SectionTabs() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isAdmin } = useHousehold();
   const section = sectionFor(pathname);
   if (!section) return null;
+
+  const flikar = synligaFlikar(section, isAdmin);
+  if (flikar.length === 0) return null;
 
   return (
     <nav
@@ -63,7 +89,7 @@ export function SectionTabs() {
       className="-mx-4 mb-6 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div className="inline-flex min-w-full gap-1 rounded-lg border border-hairline bg-card p-1">
-        {section.tabs.map((tab) => (
+        {flikar.map((tab) => (
           <Link
             key={tab.to}
             to={tab.to}

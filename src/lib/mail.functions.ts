@@ -13,8 +13,16 @@ import { z } from "zod";
 async function admin() {
   const { readSession } = await import("@/lib/auth/session.server");
   const user = await readSession();
-  if (!user) throw new Error("Ej inloggad.");
-  if (!user.isAdmin) throw new Error("Kräver administratörsbehörighet.");
+  // En vägran är inte ett serverfel. Ett kastat Error blir 500 oavsett vad
+  // setResponseStatus säger - ramverket behandlar det som en krasch. Ett kastat
+  // Response går däremot rakt igenom, så klienten kan skilja "du får inte" från
+  // "något gick sönder", och driftloggen fylls inte av falska serverfel.
+  if (!user) {
+    throw new Response("Ej inloggad.", { status: 401 });
+  }
+  if (!user.isAdmin) {
+    throw new Response("Kräver administratörsbehörighet.", { status: 403 });
+  }
   return user;
 }
 

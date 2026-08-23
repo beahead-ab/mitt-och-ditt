@@ -394,6 +394,26 @@ Utan `MAIL_TRANSPORT` används SMTP. Det är med flit: en glömd variabel ska g�
 tjänsten tyst-trasig, inte få den att skicka på riktigt när någon trodde att den
 var i testläge.
 
+**Inställningar hos Migadu.** Tjänsten skickar genom ett vanligt SMTP-konto och
+behöver inget särskilt av leverantören, men fyra saker måste vara på plats innan
+registreringen öppnas:
+
+1. **En brevlåda för avsändaren**, till exempel `noreply@mittochditt.goodstuff.se`.
+   Skapa den i Migadus admin och sätt lösenordet där. Adressen går i `MAIL_FROM`,
+   kontot och lösenordet i `SMTP_USER` och `SMTP_PASSWORD`.
+2. **Utgående server.** `SMTP_HOST=smtp.migadu.com` och `SMTP_PORT=465` med
+   `SMTP_SECURE=true`. Port 587 fungerar också, men då ska `SMTP_SECURE` vara
+   tomt - anslutningen börjar okrypterad och lyfts med STARTTLS, vilket koden
+   kräver.
+3. **DNS för domänen**, enligt de poster Migadu visar: MX, SPF, DKIM och DMARC.
+   Utan SPF och DKIM hamnar inbjudningarna i skräpposten, och en inbjudan som
+   inte kommer fram ser för mottagaren ut som att tjänsten är trasig.
+4. **En svarsadress som läses**, i `MAIL_REPLY_TO`. Mailen är automatiska, men
+   någon kommer att svara på dem.
+
+Kontrollera med `dig TXT mittochditt.goodstuff.se` och Migadus egen
+DNS-kontroll att posterna slagit igenom innan första mailet går ut.
+
 **Innehållet är oåtkomligt.** Ett köat mail kan bära en inbjudnings- eller
 återställningslänk. Den ligger krypterad i en egen tabell som radnivåsäkerheten
 stänger helt för applikationsrollen – varken parterna eller administratören kan
@@ -404,6 +424,92 @@ Under **Systemadmin → Mailstatus** syns tidpunkt, mottagare, mall, status,
 antal försök och en kort felkod. Aldrig innehållet, aldrig en token. Ett mail som
 gett upp kan köas om därifrån, förutsatt att innehållet inte redan städats bort;
 har det gjort det måste handlingen göras om, till exempel med en ny inbjudan.
+
+### 5.10b Veckosammanfattning och bevakning av frister
+
+Två svep går utöver utkorgen. Båda körs av **samma process** som skickar mailen,
+`docker compose --profile mail up -d`. Den processen kör med `--loop` och gör
+sina svep när det svenska kalenderdygnet byts - inte på en fast klockslag i UTC,
+eftersom sommartid annars hade flyttat dem en timme halva året.
+
+```sh
+# Ett svep för hand, utan att starta den löpande processen
+docker compose exec app node .output/scripts/mail.mjs --svep
+```
+
+**Veckosammanfattningen** går ut en gång per kalendervecka och mottagare, och
+bara när det finns något att säga: väntande beslut, försenad kvartalsavstämning,
+frister som närmar sig, eller underlag som väntar på godkännande. Finns inget av
+det skickas inget mail. Den innehåller inga belopp och inga avtalsuppgifter, bara
+vad som väntar och en länk till rätt hushåll. Den som har flera hushåll får ett
+mail per hushåll, och avstängda konton får inget.
+
+**Bevakningen av frister** täcker processdagens tidslinje, beskedet om
+övertagande, tremånadersfristen, dödsfallets frister och försenad
+kvartalsavstämning.
+
+Påminnelserna går ut **14, 7 och 1 dag före** fristen, och **dagen efter** att
+den löpt ut. Fyra punkter är valt för att en frist ska hinna märkas i tid att
+göra något åt den, utan att bli en mailström man slutar läsa: fjorton dagar
+räcker för att boka ett möte eller kontakta banken, sju för att påminna sig, en
+för att inte missa den av misstag. Punkten efter förfall finns för att en missad
+frist får rättsföljder - den ska inte passera i tystnad.
+
+**Ingen frist och punkt skickas två gånger.** Varje mail läggs i utkorgen med en
+nyckel som är unik för frist, förfallodag, påminnelsepunkt och mottagare:
+
+```
+frist:<fristens nyckel>:<förfallodag>:<punkt>:<mottagarens id>
+vecka:<hushållets id>:<isovecka>:<mottagarens id>
+```
+
+Utkorgen tar emot med `on conflict (idempotency_key) do nothing`. Skyddet ligger
+alltså i databasen, inte i skriptets logik: kör svepet två gånger, eller kör två
+processer samtidigt, och det andra försöket lägger till noll rader. Utöver det
+tar svepet ett `pg_try_advisory_xact_lock` innan det börjar, så två samtidiga
+processer inte gör samma arbete i onödan. Låset är **transaktionsbundet** och
+inte sessionsbundet: anslutningarna kommer ur en pool, och ett sessionslås kan
+låsas upp på en annan anslutning än den som tog det - då misslyckas upplåsningen
+tyst och låset ligger kvar tills processen startas om.
+
+### 5.10c En isolerad testmiljö
+
+För en sammanhängande provkörning utan att röra drift. Egen databas, egen
+bilagekatalog och en riktig SMTP-mottagare som skriver varje mottaget mail till
+en fil, så att man kan kontrollera vad som faktiskt skickades - inte bara vad som
+lades i kön.
+
+```sh
+# 1. Egen databas och egen bilagekatalog
+createdb mittochditt_e2e
+DATABASE_URL="postgres://postgres@127.0.0.1:5432/mittochditt_e2e" \
+  node .output/scripts/migrate.mjs
+mkdir -p /tmp/e2e-uploads
+
+# 2. Mailmottagaren. Skriver till /tmp/e2e-mail.jsonl och skriver ut sin port.
+npx tsx scripts/testmiljo.ts --utfil /tmp/e2e-mail.jsonl
+
+# 3. Appen mot testmiljön, i ett eget skal
+export NODE_ENV=test MAIL_ALLOW_INSECURE=true REGISTRATION_OPEN=true
+export DATABASE_URL="postgres://postgres@127.0.0.1:5432/mittochditt_e2e"
+export UPLOADS_DIR=/tmp/e2e-uploads APP_URL=http://127.0.0.1:4180 PORT=4180
+export SMTP_HOST=127.0.0.1 SMTP_PORT=<porten från steg 2>
+node .output/server/index.mjs
+
+# 4. Provkörningarna
+node prov/e2e-korning.mjs        # registrering, inbjudan, anslutning
+node prov/admingrans-prov.mjs    # administratörsgränsen mot en vanlig part
+node prov/adminatgard-prov.mjs   # samma serveranrop under två identiteter
+
+# 5. Ta bort miljön
+dropdb mittochditt_e2e && rm -rf /tmp/e2e-uploads /tmp/e2e-mail.jsonl
+```
+
+`MAIL_ALLOW_INSECURE=true` behövs för att nå en enkel lokal mottagare utan TLS.
+Den går inte att sätta i drift: `NODE_ENV=production` tillsammans med den flaggan
+gör att tjänsten vägrar starta, eftersom mailen bär inbjudnings- och
+återställningslänkar som annars hade gått i klartext över nätet. `testmiljo.ts`
+vägrar på samma sätt starta om `DATABASE_URL` inte ser ut som en testdatabas.
 
 ### 5.11 Övervakning och larm
 
@@ -420,14 +526,14 @@ Att mailservern strular är värt ett larm, men det gör inte tjänsten nere, oc
 larm som ropar "nere" när man i själva verket bara inte kan skicka inbjudningar
 slutar man snart lyssna på.
 
-| Larm | Så upptäcks det |
-|---|---|
-| Appen nere | `/api/halsa` svarar inte, eller ger 503 |
-| Databasen nere | `databas` är `nere` i svaret, och statuskoden blir 503 |
-| Fem mailfel i rad | `mailMisslyckadeIRad` är 5 eller mer, eller `mail` är `fel` |
-| Eftersläpning i mailkön | `mail` är `eftersläpning` – fler än femtio väntande |
+| Larm                                | Så upptäcks det                                                |
+| ----------------------------------- | -------------------------------------------------------------- |
+| Appen nere                          | `/api/halsa` svarar inte, eller ger 503                        |
+| Databasen nere                      | `databas` är `nere` i svaret, och statuskoden blir 503         |
+| Fem mailfel i rad                   | `mailMisslyckadeIRad` är 5 eller mer, eller `mail` är `fel`    |
+| Eftersläpning i mailkön             | `mail` är `eftersläpning` – fler än femtio väntande            |
 | Säkerhetskopian saknas eller är tom | `deploy/backup.sh` avslutar med felkod och skriver till loggen |
-| Disken nästan full | Skriptet varnar vid 85 procent; ändras med `DISK_WARN_PERCENT` |
+| Disken nästan full                  | Skriptet varnar vid 85 procent; ändras med `DISK_WARN_PERCENT` |
 
 Kopieringsskriptet avslutar med felkod när något gått fel, så en övervakare som
 läser exitkoden – eller cron som mailar felutskriften – räcker för de två sista
@@ -475,10 +581,14 @@ gzip -t db.sql.gz
 docker compose exec -T db createdb -U mittochditt aterstallning
 gunzip -c db.sql.gz | docker compose exec -T db psql -U mittochditt aterstallning
 
-# 4. Kontrollera att innehållet finns och att kedjan håller
+# 4. Kontrollera att innehållet finns och att kedjan håller.
+#    verify_audit_chain tar ett hushålls-id: kedjan är per hushåll, inte global.
 docker compose exec -T db psql -U mittochditt aterstallning \
   -c "select count(*) from transactions" \
-  -c "select * from verify_audit_chain()"
+  -c "select count(*) from attachments" \
+  -c "select h.name, v.* from households h,
+        lateral verify_audit_chain(h.id) v where not v.ok"
+# Ingen rad ur den sista frågan betyder att varje hushålls kedja är hel.
 
 # 5. Städa
 docker compose exec -T db dropdb -U mittochditt aterstallning
@@ -553,6 +663,46 @@ gränssnittet säger vad som saknas.
 Sätt en påminnelse 1 januari och 1 juli. En sats som saknas märks först när
 någon behöver räkna, och då är det oftast bråttom.
 
+### 5.16 Kontroller direkt efter en driftsättning
+
+Gör dem i ordning, innan du går vidare. Var och en tar under en minut, och
+tillsammans fångar de det som brukar gå sönder vid en uppdatering.
+
+```sh
+# 1. Migrationerna gick igenom och schemat är aktuellt
+docker compose exec app node .output/scripts/migrate.mjs
+#    -> "Schemat är redan aktuellt." Kör den en gång till: samma svar.
+
+# 2. Tjänsten svarar och når databasen
+curl -s https://mittochditt.goodstuff.se/api/halsa
+#    -> {"status":"ok","databas":"ok","mail":"ok", ...}
+
+# 3. Avsändaren lever, och kön har inte vuxit
+docker compose ps mail
+curl -s https://mittochditt.goodstuff.se/api/halsa | grep -o '"mailKo":[0-9]*'
+#    -> mailKo nära noll. Ett växande tal betyder att avsändaren inte kommer ut.
+
+# 4. Ett svep för hand, så att en frist inte väntar på nästa dygnsskifte
+docker compose exec app node .output/scripts/mail.mjs --svep
+```
+
+Därefter i webbläsaren, inloggad:
+
+5. **Logga in och öppna ett hushåll.** Att sidan renderar räcker inte - se att
+   överenskommelsen visar rätt startdag och rätt startvärde.
+6. **Öppna Transaktioner → Historik.** Posterna ska finnas kvar och visa samma
+   belopp som före uppdateringen.
+7. **Systemadmin → Mailstatus.** Inga mail i status `failed` som inte fanns där
+   före. Inga tokens eller adresser ska synas - bara mall, mottagare och status.
+8. **Systemadmin → Revisionsunderlag.** Kedjan ska rapporteras hel. En bruten
+   kedja efter en uppdatering betyder att något skrivit i loggen förbi tjänsten.
+9. **Logga in som en vanlig part** och gå till `/system/anvandare`. Sidan ska
+   säga att den kräver administratörsbehörighet. Går den att läsa är gränsen
+   borta.
+
+Går något av detta fel: `docker compose logs app --tail 100`, och rulla tillbaka
+med föregående avbild hellre än att felsöka i drift.
+
 ## 6. Flytta tjänsten någon annanstans
 
 1. `deploy/backup.sh` på den gamla servern.
@@ -620,14 +770,11 @@ Sedan dess är även följande byggt och prövat, och ska **inte** längre räkn
 som framtida arbete: flödet vid dödsfall med avtalets frister, mailmotorn med
 utkorg och mallar, den kompletta revisionszipen, dröjsmålsränta på
 regressfordran enligt 6 § räntelagen, sparade scenarier i simulatorn, öppen
-registrering med bekräftad e-postadress, och hushållsväljaren.
+registrering med bekräftad e-postadress, hushållsväljaren, veckosammanfattningen
+och bevakningen av frister.
 
 Kvar att bygga:
 
-- **Veckosammanfattningen.** Mallen finns men skickas inte.
-- **Bevakning av frister.** Funktionen som skickar påminnelsen finns och är
-  prövad; det som saknas är det som kör den regelbundet, till exempel ett
-  svep i mailtjänsten.
 - **Kompensation för nyttjande efter processdagen.** Avtalets punkt 21.2 säger
   att beloppet är skäligt och bestäms med hänsyn till marknadsmässig
   nyttjandenivå - det är inget tjänsten kan räkna fram. Dagen och ett

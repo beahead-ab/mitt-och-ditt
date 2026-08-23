@@ -157,3 +157,29 @@ describe("Transporten i drift", () => {
     expect(() => transportFromEnv()).toThrow(/känns inte igen/);
   });
 });
+
+describe("Okrypterad SMTP i drift", () => {
+  const original = { osaker: process.env.MAIL_ALLOW_INSECURE, env: process.env.NODE_ENV };
+
+  afterEach(() => {
+    if (original.osaker === undefined) delete process.env.MAIL_ALLOW_INSECURE;
+    else process.env.MAIL_ALLOW_INSECURE = original.osaker;
+    if (original.env === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = original.env;
+  });
+
+  it("vägras i drift", () => {
+    // Utan TLS går inbjudnings- och återställningslänkar i klartext över nätet.
+    // Undantaget finns för att kunna pröva mot en enkel mottagare lokalt.
+    process.env.NODE_ENV = "production";
+    process.env.MAIL_ALLOW_INSECURE = "true";
+    expect(() => transportFromEnv()).toThrow(/klartext/);
+  });
+
+  it("tillåts under utveckling", () => {
+    process.env.NODE_ENV = "development";
+    process.env.MAIL_ALLOW_INSECURE = "true";
+    process.env.MAIL_TRANSPORT = "memory";
+    expect(() => transportFromEnv()).not.toThrow();
+  });
+});
