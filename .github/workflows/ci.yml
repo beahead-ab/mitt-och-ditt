@@ -37,6 +37,23 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      # Bygget buntar beroendena, och en buntning kan gå sönder utan att källan
+      # gör det. Just det hände: .output/scripts/mail.mjs kraschade på "Dynamic
+      # require of events" - nodemailer är CommonJS och esbuild bygger till ESM -
+      # medan tsx scripts/mail.ts fungerade. Avsändaren i compose kör det byggda
+      # skriptet, så inga mail hade gått ut i drift. Det syns bara om artefakten
+      # får köra på riktigt.
+      - name: De byggda skripten startar och når databasen
+        env:
+          DATABASE_URL: postgres://postgres:ci@127.0.0.1:5432/postgres
+          MAIL_TRANSPORT: memory
+          APP_URL: http://127.0.0.1:3000
+        run: |
+          export MAIL_QUEUE_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+          node .output/scripts/migrate.mjs
+          node .output/scripts/mail.mjs --svep
+          node .output/scripts/mail.mjs
+
   docker:
     runs-on: ubuntu-latest
     needs: verify

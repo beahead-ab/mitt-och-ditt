@@ -20,9 +20,17 @@ function ok(nr, text, extra = "") {
   console.log(`  ${nr}. ${text}${extra ? " — " + extra : ""}`);
 }
 
-/** Tömmer utkorgen mot SMTP-mottagaren och väntar tills mailen kommit fram. */
+/**
+ * Tömmer utkorgen mot SMTP-mottagaren.
+ *
+ * Kör det **byggda** skriptet, inte källan via tsx. Det är skillnaden mellan
+ * att pröva koden och att pröva det drift startar: bygget buntar nodemailer,
+ * och en buntning som går sönder syns inte i källan. Just det felet fanns -
+ * `.output/scripts/mail.mjs` kraschade på "Dynamic require of events" medan
+ * `tsx scripts/mail.ts` fungerade.
+ */
 function skickaMail() {
-  execFileSync("npx", ["tsx", "scripts/mail.ts"], {
+  execFileSync("node", [".output/scripts/mail.mjs"], {
     stdio: "pipe",
     env: process.env,
   });
