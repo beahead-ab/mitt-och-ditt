@@ -95,6 +95,50 @@ function likaVarden(a: unknown, b: unknown): boolean {
   return String(a) === String(b);
 }
 
+/**
+ * Kontrollerar att värdena hänger ihop.
+ *
+ * Utan den här kunde ett tillägg sätta startenheter som inte summerar till
+ * totalen - och då blir de interna andelarna till exempel 90 % och 60 %,
+ * tillsammans 150 %. Motorns summakontroll hade fällt det efteråt, men då är
+ * tillägget redan undertecknat och infört.
+ */
+export function valideraVarden(nya: Avtalsvarden): { ok: true } | { ok: false; skal: string } {
+  const totalt = Number(nya.totalUnits);
+  if (!Number.isFinite(totalt) || totalt <= 0) {
+    return { ok: false, skal: "Totalt antal andelsenheter måste vara större än noll." };
+  }
+
+  const enheter = Object.values(nya.startUnits);
+  if (enheter.some((v) => !Number.isFinite(v) || v < 0)) {
+    return { ok: false, skal: "Startenheter kan inte vara negativa eller saknas." };
+  }
+
+  // Öre och enheter är heltal i modellen; en tiondels enhet är avrundningsbrus
+  // och inte ett verkligt fel.
+  const summa = enheter.reduce((a, b) => a + b, 0);
+  if (Math.abs(summa - totalt) > 0.5) {
+    return {
+      ok: false,
+      skal:
+        `Startenheterna summerar till ${summa} men det totala antalet är ${totalt}. ` +
+        "De måste vara lika, annars blir de interna andelarna tillsammans något annat än 100 %.",
+    };
+  }
+
+  if (nya.formalOwnership) {
+    const andelar = Object.values(nya.formalOwnership);
+    if (andelar.some((v) => !Number.isFinite(v) || v < 0 || v > 1)) {
+      return { ok: false, skal: "Varje formell ägarandel måste ligga mellan 0 och 100 procent." };
+    }
+    if (andelar.length > 0 && Math.abs(andelar.reduce((a, b) => a + b, 0) - 1) > 0.000001) {
+      return { ok: false, skal: "De formella ägarandelarna måste tillsammans bli 100 procent." };
+    }
+  }
+
+  return { ok: true };
+}
+
 export type Granskning = { ok: true; andrade: Avtalsfalt[] } | { ok: false; skal: string };
 
 /**
@@ -110,6 +154,12 @@ export function granskaTillagg(
   uppgivnaFalt: Avtalsfalt[] | undefined,
 ): Granskning {
   const nya = nyaAvtalsvarden(gallande, andringar);
+
+  // Värdena måste hänga ihop innan något annat prövas. Ett tillägg som gör
+  // avtalet motsägelsefullt ska avvisas oavsett vad det säger sig ändra.
+  const giltiga = valideraVarden(nya);
+  if (!giltiga.ok) return { ok: false, skal: giltiga.skal };
+
   const andrade = andradeFalt(gallande, nya);
 
   if (uppgivnaFalt === undefined) return { ok: true, andrade };

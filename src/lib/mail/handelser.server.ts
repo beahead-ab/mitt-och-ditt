@@ -220,6 +220,8 @@ export async function notifieraFrist(args: {
 /** Den som bjöd in får besked när motparten anslutit. */
 export async function notifieraMotpartAccepterade(args: {
   householdId: string;
+  /** Inbjudningens id. En ny inbjudan efter en återkallad är en ny händelse. */
+  inviteId: string;
   inbjudarensUserId: string;
   motpartensNamn: string;
 }): Promise<void> {
@@ -229,7 +231,10 @@ export async function notifieraMotpartAccepterade(args: {
   if (!rad) return;
 
   await enqueue({
-    idempotencyKey: `motpart-accepterade:${args.householdId}:${args.inbjudarensUserId}`,
+    // Nyckeln bär inbjudningen, inte bara hushållet. Blir någon utbjuden på
+    // nytt efter en återkallad inbjudan ska inbjudaren få besked igen - med
+    // hushållet som enda nyckel hade det andra beskedet tystnat.
+    idempotencyKey: `motpart-accepterade:${args.inviteId}:${args.inbjudarensUserId}`,
     template: "motpart_accepterade",
     to: rad.email,
     householdId: args.householdId,

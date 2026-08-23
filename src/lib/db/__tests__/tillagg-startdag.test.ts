@@ -216,9 +216,11 @@ describeDb("Sammanfattningen måste stämma med värdena", () => {
     await expect(
       tillagg.registreraTillagg(
         ids.caesar,
+        // Startvärdet ändras utan att anges. Ett ändrat totalantal hade
+        // avvisats redan av summakontrollen, och då mätt fel sak.
         indata({
           initialLoanOre: "240000000",
-          totalUnits: "1600000",
+          startValueOre: "460000000",
           andrarFalt: ["initialLoanOre"],
         }),
       ),

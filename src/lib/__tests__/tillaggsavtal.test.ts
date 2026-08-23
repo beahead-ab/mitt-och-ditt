@@ -213,3 +213,80 @@ describe("Historiken räknas likadant efter ett tillägg", () => {
     expect(toKronor(efter.settlement.saleNet)).not.toBe(toKronor(fore.settlement.saleNet));
   });
 });
+
+describe("Värdena måste hänga ihop", () => {
+  it("avvisar startenheter som inte summerar till totalen", () => {
+    // Annars blir de interna andelarna 90 % och 60 %, tillsammans 150 %.
+    const svar = granskaTillagg(
+      GALLANDE,
+      { startUnits: { caesar: 900000, felicia: 900000 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(false);
+    if (svar.ok) return;
+    expect(svar.skal).toMatch(/summerar till 1800000/);
+  });
+
+  it("släpper igenom när totalen ändras med enheterna", () => {
+    const svar = granskaTillagg(
+      GALLANDE,
+      { startUnits: { caesar: 900000, felicia: 900000 }, totalUnits: "1800000" },
+      undefined,
+    );
+    expect(svar.ok).toBe(true);
+  });
+
+  it("avvisar negativa startenheter", () => {
+    const svar = granskaTillagg(
+      GALLANDE,
+      { startUnits: { caesar: 1600000, felicia: -100000 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(false);
+    if (svar.ok) return;
+    expect(svar.skal).toMatch(/negativa/);
+  });
+
+  it("avvisar totalt antal enheter som inte är positivt", () => {
+    const svar = granskaTillagg(
+      GALLANDE,
+      { totalUnits: "0", startUnits: { caesar: 0, felicia: 0 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(false);
+    if (svar.ok) return;
+    expect(svar.skal).toMatch(/större än noll/);
+  });
+
+  it("avvisar formella ägarandelar som inte blir hundra procent", () => {
+    const svar = granskaTillagg(
+      GALLANDE,
+      { formalOwnership: { caesar: 0.6, felicia: 0.6 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(false);
+    if (svar.ok) return;
+    expect(svar.skal).toMatch(/100 procent/);
+  });
+
+  it("avvisar en ägarandel utanför noll till hundra", () => {
+    const svar = granskaTillagg(
+      GALLANDE,
+      { formalOwnership: { caesar: 1.4, felicia: -0.4 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(false);
+    if (svar.ok) return;
+    expect(svar.skal).toMatch(/mellan 0 och 100/);
+  });
+
+  it("tål avrundningsbrus i enheterna", () => {
+    // En tiondels enhet är avrundning, inte ett verkligt fel.
+    const svar = granskaTillagg(
+      GALLANDE,
+      { startUnits: { caesar: 900000.2, felicia: 599999.9 } },
+      undefined,
+    );
+    expect(svar.ok).toBe(true);
+  });
+});

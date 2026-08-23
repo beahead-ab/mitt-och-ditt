@@ -43,7 +43,7 @@ export const inviteDetails = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { owner } = await import("@/lib/db/client.server");
     const { hashToken, isExpired } = await import("./tokens");
-    const { loggaHändelse, räknaFörsök } = await import("./throttle.server");
+    const { loggaHändelse, nollställ, räknaFörsök } = await import("./throttle.server");
 
     // En inbjudningstoken är en väg in i ett hushåll. Utan spärr går den att
     // gissa hur många gånger som helst. Kategorin fanns men användes inte.
@@ -80,6 +80,11 @@ export const inviteDetails = createServerFn({ method: "GET" })
     if (!invite || invite.revoked_at || invite.accepted_at || isExpired(invite.expires_at)) {
       return { valid: false as const };
     }
+    // En giltig länk nollställer räknaren. Annars kunde den som laddar om
+    // inbjudningssidan tio gånger låsa ut sig själv i en timme och inte kunna
+    // acceptera - spärren ska stoppa gissning, inte den inbjudne.
+    await nollställ("invite", { ip: klientIp() });
+
     return {
       valid: true as const,
       email: invite.email,
@@ -109,7 +114,11 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { loggaHändelse: logga, räknaFörsök: räkna } = await import("./throttle.server");
+    const {
+      loggaHändelse: logga,
+      nollställ: nollställSpärr,
+      räknaFörsök: räkna,
+    } = await import("./throttle.server");
 
     // Samma spärr som vid uppslaget. Att acceptera är det som faktiskt skapar
     // kontot, så här är gissning som mest värd att stoppa.
@@ -177,13 +186,17 @@ export const acceptInvite = createServerFn({ method: "POST" })
       return user.id;
     });
 
+    // Accepterandet lyckades: räknaren nollställs så en riktig inbjuden aldrig
+    // kan låsa ut sig själv genom att ladda om.
+    await nollställSpärr("invite", { ip: klientIp() });
+
     try {
       const { notifieraMotpartAccepterade } = await import("@/lib/mail/handelser.server");
       const { owner } = await import("@/lib/db/client.server");
       const [inbjudan] = await owner()<
-        { household_id: string; invited_by: string | null; namn: string }[]
+        { invite_id: string; household_id: string; invited_by: string | null; namn: string }[]
       >`
-        select i.household_id, i.invited_by, m.display_name as namn
+        select i.id as invite_id, i.household_id, i.invited_by, m.display_name as namn
           from invites i
           join household_members m
             on m.household_id = i.household_id and m.user_id = ${userId}
@@ -192,6 +205,7 @@ export const acceptInvite = createServerFn({ method: "POST" })
       if (inbjudan?.invited_by) {
         await notifieraMotpartAccepterade({
           householdId: inbjudan.household_id,
+          inviteId: inbjudan.invite_id,
           inbjudarensUserId: inbjudan.invited_by,
           motpartensNamn: inbjudan.namn,
         });
