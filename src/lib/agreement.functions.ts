@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { AVTALSFALT, granskaTillagg, nyaAvtalsvarden } from "@/lib/tillaggsavtal";
+
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ange datum som ÅÅÅÅ-MM-DD.");
 const wholeKronor = z.number().int().min(0).max(100_000_000_000);
 
@@ -147,7 +149,7 @@ export const createInitialAgreementDraft = createServerFn({ method: "POST" })
       }
 
       const [agreement] = await sql<{ id: string }[]>`
-        select id from agreements where household_id = ${data.householdId}
+        select id from agreements where id = current_agreement_id(${data.householdId})
       `;
       if (!agreement)
         throw new Error("Hushållets avtalsbehållare saknas. Kontakta administratören.");
@@ -512,6 +514,16 @@ export const createAddendum = createServerFn({ method: "POST" })
         affected: z.array(z.string().trim().min(1).max(60)).max(20),
         attachmentId: z.string().uuid(),
         // Avtalets värden efter tillägget. Utelämnade fält behåller sitt värde.
+        //
+        // startDate finns med, men bara som ett uttryckligt val. Tidigare sattes
+        // avtalets startdag automatiskt till tilläggets giltighetsdag, vilket
+        // flyttade hela den linjära tidslinjen och uteslöt varje historisk post.
+        startDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        /** Fälten tillägget säger sig ändra. Måste stämma med den faktiska skillnaden. */
+        andrarFalt: z.array(z.enum(AVTALSFALT)).max(AVTALSFALT.length).optional(),
         startValueOre: z.string().regex(/^\d+$/).optional(),
         initialLoanOre: z.string().regex(/^\d+$/).optional(),
         totalUnits: z.string().optional(),
@@ -522,95 +534,12 @@ export const createAddendum = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { createHash } = await import("node:crypto");
     const { readSession } = await import("@/lib/auth/session.server");
-    const { asUser } = await import("@/lib/db/client.server");
+    const { registreraTillagg } = await import("@/lib/db/tillagg.server");
+
     const user = await readSession();
     if (!user) throw new Error("Ej inloggad.");
-
-    return asUser(user.id, async (sql) => {
-      const [avtal] = await sql<{ id: string }[]>`
-        select id from agreements where household_id = ${data.householdId}`;
-      if (!avtal) throw new Error("Hushållet har inget avtal.");
-
-      // Bilagan måste tillhöra samma hushåll. Utan kontrollen hade en gissad
-      // bilage-id kunnat knytas till ett tillägg i ett annat hushåll.
-      //
-      // Hashen läses ur den lagrade filen, aldrig från klienten. Annars hade den
-      // som registrerar kunnat uppge en annan hash än handlingen faktiskt har,
-      // och bekräftelsen bevisat fel sak.
-      const [bilaga] = await sql<{ id: string; sha256: string }[]>`
-        select id, sha256 from attachments
-         where id = ${data.attachmentId} and household_id = ${data.householdId}`;
-      if (!bilaga) throw new Error("Bilagan hör inte till hushållet.");
-
-      const [senaste] = await sql<
-        {
-          version: number;
-          start_date: string;
-          start_value_ore: string;
-          initial_loan_ore: string;
-          total_units: string;
-          start_units: Record<string, number>;
-          formal_ownership: Record<string, number> | null;
-        }[]
-      >`
-        select version, start_date, start_value_ore, initial_loan_ore, total_units,
-               start_units, formal_ownership
-          from agreement_versions
-         where agreement_id = ${avtal.id} and effective_at is not null
-         order by version desc limit 1
-      `;
-      if (!senaste) {
-        throw new Error("Det finns ingen gällande avtalsversion att bygga vidare på.");
-      }
-
-      const [tillagg] = await sql<{ id: string }[]>`
-        insert into agreement_addenda
-          (agreement_id, household_id, title, signed_on, summary, applies_from,
-           affected, document_sha256, attachment_id, created_by)
-        values (${avtal.id}, ${data.householdId}, ${data.title}, ${data.signedOn},
-                ${data.summary}, ${data.appliesFrom}, ${data.affected},
-                ${bilaga.sha256}, ${data.attachmentId}, ${user.id})
-        returning id
-      `;
-
-      const nyaVarden = {
-        startDate: data.appliesFrom,
-        startValueOre: data.startValueOre ?? senaste.start_value_ore,
-        initialLoanOre: data.initialLoanOre ?? senaste.initial_loan_ore,
-        totalUnits: data.totalUnits ?? senaste.total_units,
-        startUnits: data.startUnits ?? senaste.start_units,
-        formalOwnership: data.formalOwnership ?? senaste.formal_ownership,
-      };
-
-      // Checksumman räknas över sorterade nycklar, så att två identiska avtal
-      // alltid ger samma summa oavsett i vilken ordning fälten råkar ligga.
-      const kanoniskt = JSON.stringify(nyaVarden, Object.keys(nyaVarden).sort());
-      const checksum = createHash("sha256").update(kanoniskt).digest("hex");
-
-      const [version] = await sql<{ id: string; version: number }[]>`
-        insert into agreement_versions
-          (agreement_id, version, start_date, start_value_ore, initial_loan_ore,
-           total_units, start_units, formal_ownership, checksum, addendum_id,
-           created_by, reason)
-        values (${avtal.id}, ${senaste.version + 1}, ${nyaVarden.startDate},
-                ${nyaVarden.startValueOre}, ${nyaVarden.initialLoanOre},
-                ${nyaVarden.totalUnits}, ${sql.json(nyaVarden.startUnits)},
-                ${sql.json(nyaVarden.formalOwnership)}, ${checksum}, ${tillagg.id},
-                ${user.id}, ${data.reason ?? data.title})
-        returning id, version
-      `;
-
-      await sql`
-        insert into audit_events
-          (household_id, event_type, entity_type, entity_id, actor_id, new_value)
-        values (${data.householdId}, 'addendum.created', 'agreement', ${tillagg.id}, ${user.id},
-                ${sql.json({ title: data.title, appliesFrom: data.appliesFrom, checksum } as never)})
-      `;
-
-      return { addendumId: tillagg.id, versionId: version.id, version: version.version };
-    });
+    return registreraTillagg(user.id, data);
   });
 
 /**
